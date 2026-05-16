@@ -1,0 +1,12 @@
+{
+  "demo-plan-001": {
+    "line_id": "LINE-01",
+    "shift": "day",
+    "crew_size": 3,
+    "worker_skill": 0.6,
+    "days_since_last_clean": 2,
+    "equipment_condition": 0.7,
+    "day_of_week": 6,
+    "context_version": "context-v1"
+  }
+}

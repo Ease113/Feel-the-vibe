@@ -1,0 +1,33 @@
+{
+  "rule_version": "rules-2026.05.v1",
+  "rules": [
+    {
+      "rule_id": "SR-001",
+      "rule_type": "color_transition",
+      "condition": "black -> white",
+      "severity": "HIGH",
+      "penalty": 80.0
+    },
+    {
+      "rule_id": "SR-002",
+      "rule_type": "color_transition",
+      "condition": "dark -> light with brightness gap",
+      "severity": "MEDIUM_OR_HIGH",
+      "penalty": 35.0
+    },
+    {
+      "rule_id": "SR-003",
+      "rule_type": "color_transition",
+      "condition": "metallic -> non-metallic",
+      "severity": "MEDIUM",
+      "penalty": 32.0
+    },
+    {
+      "rule_id": "SR-004",
+      "rule_type": "color_transition",
+      "condition": "same SKU or same color family",
+      "severity": "LOW",
+      "penalty": 0.0
+    }
+  ]
+}

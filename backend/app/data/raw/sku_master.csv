@@ -1,0 +1,13 @@
+sku_id,sku_name,color_family,color_hex,category,is_metallic,brightness_level,viscosity_level
+SKU-WHITE-001,Pure White,white,#F8F8F3,light,0,92,34
+SKU-IVORY-001,Warm Ivory,white,#F2E6C8,light,0,84,38
+SKU-YELLOW-001,Safety Yellow,yellow,#F6C945,light,0,78,42
+SKU-RED-001,Signal Red,red,#C83A32,mid,0,48,57
+SKU-BLUE-001,Deep Blue,blue,#1E4D8F,dark,0,30,60
+SKU-GREEN-001,Machine Green,green,#2B7A4B,mid,0,42,52
+SKU-GRAY-001,Neutral Gray,gray,#777C80,mid,0,55,45
+SKU-BLACK-001,Jet Black,black,#101214,dark,0,8,62
+SKU-SILVER-001,Metallic Silver,silver,#C4C8C8,metal,1,76,50
+SKU-GOLD-001,Metallic Gold,gold,#C8A641,metal,1,70,53
+SKU-ORANGE-001,Safety Orange,orange,#E56F24,mid,0,58,49
+SKU-PURPLE-001,Deep Purple,purple,#59306E,dark,0,25,58
