@@ -1,3 +1,5 @@
+"""색상 전환 비용을 예측하는 휴리스틱 비용 예측기."""
+
 from typing import Any
 
 from app.core.config import MODEL_VERSION
@@ -22,6 +24,21 @@ class CostPredictor:
         to_item: dict[str, Any],
         context: dict[str, Any],
     ) -> dict[str, float]:
+        """두 plan item 사이의 6개 비용 차원을 휴리스틱으로 예측한다.
+
+        밝기·점도 차이, 포장 변경, 색상군 전환, 메탈릭 여부, 설비 상태, 작업자 숙련도를
+        복합 가중치로 합산해 complexity를 계산한다. XGBoost 모델은 아직 미연동이므로
+        heuristic이 primary path다.
+
+        Args:
+            from_item: 직전 생산 plan item (sku 키 포함).
+            to_item: 다음 생산 plan item (sku 키 포함).
+            context: 라인 컨텍스트 (crew_size, worker_skill, equipment_condition 등).
+
+        Returns:
+            setup_time, labor_cost, material_loss, wash_cost, downtime,
+            packaging_time 6개 키를 가진 비용 딕셔너리 (단위: 분/원/L).
+        """
         from_sku = from_item["sku"]
         to_sku = to_item["sku"]
         brightness_gap = abs(_brightness_level(from_sku) - _brightness_level(to_sku))

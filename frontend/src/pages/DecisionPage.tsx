@@ -4,6 +4,12 @@ import { getHealth, getPlan } from '../api/client';
 import type { PlanResponse } from '../api/types';
 import SequenceWorkspace from '../components/SequenceWorkspace';
 
+/**
+ * 생산순서 의사결정 메인 페이지.
+ *
+ * 마운트 시 /health와 /plans/demo-plan-001을 병렬 호출해 백엔드 상태와 계획 데이터를 로드한다.
+ * 백엔드가 오프라인이면 status를 'offline'으로 표시하고 에러 메시지를 렌더링한다.
+ */
 export default function DecisionPage() {
   const [health, setHealth] = useState<string>('checking');
   const [plan, setPlan] = useState<PlanResponse | null>(null);

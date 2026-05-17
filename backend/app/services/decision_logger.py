@@ -1,3 +1,5 @@
+"""확정 의사결정을 SQLite에 저장하고 KPI 대시보드용 조회를 제공하는 로거."""
+
 import json
 import uuid
 from datetime import datetime, timezone
@@ -13,9 +15,20 @@ class DecisionLogger:
     """Persists confirmed decisions and reads them back for KPI dashboards."""
 
     def __init__(self) -> None:
+        """DB가 없으면 초기화해 항상 테이블이 존재하는 상태로 시작한다."""
         initialize_database()
 
     def save_decision(self, request: DecisionCreateRequest) -> dict[str, str]:
+        """확정 순서를 평가·비교한 뒤 decisions 테이블에 저장하고 decision_id를 반환한다.
+
+        DB 스키마에 없는 컬럼은 자동으로 필터링하므로 스키마 버전이 달라도 안전하다.
+
+        Args:
+            request: plan_id, recommended_sequence, confirmed_sequence 등을 담은 요청 객체.
+
+        Returns:
+            decision_id와 committed_at(UTC ISO8601)을 담은 딕셔너리.
+        """
         evaluator = SequenceEvaluator()
         comparison = evaluator.compare(
             request.plan_id,
@@ -75,6 +88,7 @@ class DecisionLogger:
         return {"decision_id": decision_id, "committed_at": confirmed_at}
 
     def get_decision(self, decision_id: str) -> dict[str, Any] | None:
+        """decision_id로 단건 의사결정 레코드를 조회한다. 없으면 None 반환."""
         with get_connection() as connection:
             row = connection.execute(
                 "SELECT * FROM decisions WHERE decision_id = ?",
@@ -85,6 +99,7 @@ class DecisionLogger:
         return self._row_to_decision(row)
 
     def list_decisions(self) -> list[dict[str, Any]]:
+        """confirmed_at 내림차순으로 전체 의사결정 목록을 반환한다."""
         with get_connection() as connection:
             rows = connection.execute(
                 "SELECT * FROM decisions ORDER BY confirmed_at DESC"
@@ -92,6 +107,7 @@ class DecisionLogger:
         return [self._row_to_decision(row) for row in rows]
 
     def update_reviewed(self, decision_id: str, reviewed: bool) -> bool:
+        """decision의 reviewed 플래그를 갱신한다. 레코드가 없으면 False를 반환한다."""
         with get_connection() as connection:
             cursor = connection.execute(
                 "UPDATE decisions SET reviewed = ? WHERE decision_id = ?",

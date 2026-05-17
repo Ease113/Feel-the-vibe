@@ -18,9 +18,25 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "pytest>=8.0"
+  "pytest>=8.0",
+  "ruff>=0.4"
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["app*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["D"]
+ignore = ["D107", "D203", "D213"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+"**/__init__.py" = ["D"]
