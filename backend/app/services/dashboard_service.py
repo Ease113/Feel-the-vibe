@@ -1,3 +1,5 @@
+"""저장된 의사결정 로그를 집계해 KPI 대시보드 데이터를 생성하는 서비스."""
+
 from statistics import mean
 from typing import Any
 
@@ -8,6 +10,13 @@ class DashboardService:
     """Builds KPI dashboard data from saved decision logs."""
 
     def get_dashboard(self) -> dict[str, Any]:
+        """저장된 전체 의사결정 로그를 읽어 KPI 집계, 트렌드, 위험 패턴을 반환한다.
+
+        결정 건수가 0일 때도 빈 값으로 안전하게 응답한다.
+
+        Returns:
+            dashboard_summary, kpi_trend, risk_patterns, recent_decisions, weekly_summary를 담은 딕셔너리.
+        """
         decisions = DecisionLogger().list_decisions()
         objective_scores = [
             decision["confirmed_cost"].get("objective_score", 0.0)

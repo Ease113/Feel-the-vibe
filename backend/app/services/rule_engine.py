@@ -1,3 +1,5 @@
+"""sequence_rules.json 기반 색상 전환 규칙 평가 엔진."""
+
 from typing import Any
 
 from app.core.config import RULE_VERSION
@@ -10,6 +12,7 @@ class RuleEngine:
     rule_version = RULE_VERSION
 
     def __init__(self) -> None:
+        """규칙 파일을 로드하고 특이도(specificity) 내림차순으로 정렬해 저장한다."""
         payload = DataLoader().get_rules()
         self.rule_version = payload.get("rule_version", RULE_VERSION)
         self.rules = sorted(
@@ -25,6 +28,20 @@ class RuleEngine:
         from_plan_item_id: str,
         to_plan_item_id: str,
     ) -> dict[str, Any]:
+        """두 SKU 간 전환에 적용되는 첫 번째 매칭 규칙을 찾아 평가 결과를 반환한다.
+
+        규칙은 특이도 내림차순(sku_id 매칭 > category 매칭 > 일반)으로 순서가 정해져 있다.
+        매칭 규칙이 없으면 penalty=0, severity=None의 기본 결과를 반환한다.
+
+        Args:
+            from_sku: 직전 SKU 딕셔너리.
+            to_sku: 다음 SKU 딕셔너리.
+            from_plan_item_id: warning 메시지에 포함될 직전 plan_item_id.
+            to_plan_item_id: warning 메시지에 포함될 다음 plan_item_id.
+
+        Returns:
+            rule_id, severity, penalty, sequence_risk, warning 키를 포함한 딕셔너리.
+        """
         for rule in self.rules:
             if self._matches(rule, from_sku, to_sku):
                 return self._rule_result(rule, from_plan_item_id, to_plan_item_id)

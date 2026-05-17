@@ -46,3 +46,22 @@ smoke test 확인 순서: `GET /health` → seed data → `/plans` → `/optimiz
 
 기능 설계 문서는 `docs/design/<feature-name>.md`에 작성합니다.  
 섹션 규칙과 문체는 `docs/design/design-doc.md`를 따릅니다.
+
+## 코드 품질
+
+### Docstring / JSDoc 규칙
+
+- 백엔드 공개 함수·클래스에는 Google 스타일 docstring을 작성합니다.
+- 프론트엔드 export 함수·컴포넌트에는 JSDoc을 작성합니다.
+- 단순 getter나 자명한 1줄 함수는 생략 가능합니다.
+- 린트(`ruff`, `eslint`)가 누락 시 에러로 처리합니다.
+
+### 린트 실행
+
+```bash
+# 백엔드 (venv 활성화 후)
+cd backend && ruff check app/
+
+# 프론트엔드
+cd frontend && npm run lint
+```

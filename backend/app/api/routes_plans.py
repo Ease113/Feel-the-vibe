@@ -1,3 +1,5 @@
+"""생산 계획 조회 라우터."""
+
 from fastapi import APIRouter, HTTPException
 
 from app.services.data_loader import DataLoader
@@ -8,6 +10,7 @@ router = APIRouter(tags=["plans"])
 
 @router.get("/plans/{plan_id}")
 def get_plan(plan_id: str) -> dict:
+    """plan_id에 해당하는 plan_items, operating_context, default_priority_profile을 반환한다."""
     loader = DataLoader()
     try:
         plan_items = loader.get_plan_items(plan_id)

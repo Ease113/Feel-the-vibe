@@ -1,9 +1,13 @@
+"""의사결정 저장 및 reviewed 업데이트 요청 스키마."""
+
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
 class DecisionCreateRequest(BaseModel):
+    """확정 순서를 저장할 때 프론트엔드가 전송하는 요청 바디."""
+
     plan_id: str
     recommended_sequence: list[str]
     confirmed_sequence: list[str]
@@ -16,4 +20,6 @@ class DecisionCreateRequest(BaseModel):
 
 
 class ReviewedUpdateRequest(BaseModel):
+    """PATCH /decisions/{id}/reviewed 엔드포인트의 요청 바디."""
+
     reviewed: bool

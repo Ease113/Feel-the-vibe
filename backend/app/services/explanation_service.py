@@ -1,3 +1,5 @@
+"""외부 LLM 없이 한국어 템플릿 설명을 생성하는 서비스."""
+
 from typing import Any
 
 
@@ -5,6 +7,17 @@ class ExplanationService:
     """Generates Korean template explanations without calling an external LLM."""
 
     def explain(self, payload: dict[str, Any]) -> str:
+        """비교 결과와 경고 내용을 바탕으로 한국어 요약 문장을 생성한다.
+
+        LLM 환경변수가 없어도 항상 동작하는 template 기반 fallback이다.
+        objectiveScore 차이 → HIGH 경고 → 세척 우선순위 순으로 문장을 조합한다.
+
+        Args:
+            payload: comparison_state, risk_warnings, priority_profile을 포함한 딕셔너리.
+
+        Returns:
+            상황을 요약하는 한국어 문장 (공백으로 이어진 단문 복수개).
+        """
         warnings = payload.get("risk_warnings", [])
         comparison = payload.get("comparison_state", {})
         priority = payload.get("priority_profile", {})

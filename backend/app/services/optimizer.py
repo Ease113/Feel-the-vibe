@@ -1,3 +1,5 @@
+"""생산순서 평가(SequenceEvaluator) 및 최적화(Optimizer) 서비스."""
+
 import logging
 from itertools import permutations
 from typing import Any
@@ -25,6 +27,19 @@ class SequenceEvaluator:
         sequence: list[str],
         priority_profile: dict | None,
     ) -> dict[str, Any]:
+        """주어진 plan_item_id 순서에 대해 전환 비용과 규칙 페널티를 집계한다.
+
+        인접 plan item 쌍마다 CostPredictor와 RuleEngine을 호출해
+        objectiveScore = totalWeightedCost + sequencePenalty를 계산한다.
+
+        Args:
+            plan_id: 평가할 생산 계획 식별자.
+            sequence: plan_item_id 배열 (평가 순서 기준).
+            priority_profile: 비용 차원별 가중치 설정. None이면 NORMAL 기본값 적용.
+
+        Returns:
+            sequence, transition_costs, aggregated_cost, objective_score 등을 포함한 평가 결과 딕셔너리.
+        """
         plan_item_map = self.loader.get_plan_item_map(plan_id)
         context = self.loader.get_plan_context(plan_id)
         normalized_priority, applied_weights = normalize_priority_profile(priority_profile)
@@ -95,6 +110,20 @@ class SequenceEvaluator:
         current_sequence: list[str],
         priority_profile: dict | None,
     ) -> dict[str, Any]:
+        """추천 순서와 현재 순서의 objectiveScore를 비교해 차이 지표를 반환한다.
+
+        두 순서를 각각 evaluate()한 뒤 recommended를 baseline으로 삼아 diff를 계산한다.
+        diff가 양수면 현재 순서가 추천안보다 비용이 높음을 의미한다.
+
+        Args:
+            plan_id: 비교 대상 생산 계획 식별자.
+            recommended_sequence: 기준(추천) 순서 plan_item_id 배열.
+            current_sequence: 사용자가 편집한 현재 순서 plan_item_id 배열.
+            priority_profile: 비용 차원별 가중치 설정.
+
+        Returns:
+            current_evaluation, baseline_evaluation, comparison_state, comparison_summary를 포함한 딕셔너리.
+        """
         baseline = self.evaluate(plan_id, recommended_sequence, priority_profile)
         current = self.evaluate(plan_id, current_sequence, priority_profile)
         recommended_score = baseline["objective_score"]
@@ -151,6 +180,19 @@ class Optimizer:
         plan_item_ids: list[str],
         priority_profile: dict | None,
     ) -> dict[str, Any]:
+        """objectiveScore를 최소화하는 생산순서를 탐색한다.
+
+        OR-tools 라우팅 솔버를 우선 시도하고, 실패하면 항목 수에 따라
+        brute-force(≤8개) 또는 nearest-neighbor(>8개)로 fallback한다.
+
+        Args:
+            plan_id: 최적화할 생산 계획 식별자.
+            plan_item_ids: 순서를 결정할 plan_item_id 목록.
+            priority_profile: 비용 차원별 가중치 설정.
+
+        Returns:
+            recommended_sequence, transition_costs, objective_score, optimizer_backend 등을 포함한 딕셔너리.
+        """
         if len(plan_item_ids) <= 1:
             sequence = plan_item_ids
         else:

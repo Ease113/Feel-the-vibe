@@ -1,3 +1,5 @@
+"""프로젝트 전역 경로 상수 및 버전 식별자."""
+
 from pathlib import Path
 
 APP_DIR = Path(__file__).resolve().parents[1]

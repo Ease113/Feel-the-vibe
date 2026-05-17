@@ -3,6 +3,12 @@ import { getDashboard } from '../api/client';
 import type { DashboardResponse } from '../api/types';
 import DashboardCharts from '../components/DashboardCharts';
 
+/**
+ * KPI 대시보드 페이지.
+ *
+ * 마운트 시 /dashboard를 호출해 결정 건수, 평균 목적 점수, 위험 전환 수를 표시한다.
+ * 데이터 로드 전에는 로딩 플레이스홀더를 렌더링한다.
+ */
 export default function DashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
 

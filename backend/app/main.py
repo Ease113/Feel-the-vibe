@@ -1,3 +1,5 @@
+"""FastAPI 애플리케이션 팩토리 및 진입점."""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -15,6 +17,11 @@ from app.db.sqlite import initialize_database
 
 
 def create_app() -> FastAPI:
+    """CORS 설정과 모든 라우터를 포함한 FastAPI 인스턴스를 생성하고 반환한다.
+
+    Returns:
+        시작 시 DB를 초기화하는 이벤트 핸들러가 등록된 FastAPI 앱 인스턴스.
+    """
     app = FastAPI(title="SmartFactoryV2 API", version="0.1.0")
 
     app.add_middleware(
@@ -36,6 +43,7 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     def startup() -> None:
+        """앱 기동 시 SQLite 스키마를 초기화한다."""
         initialize_database()
 
     return app

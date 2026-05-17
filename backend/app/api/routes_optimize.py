@@ -1,3 +1,5 @@
+"""순서 최적화 라우터."""
+
 from fastapi import APIRouter
 
 from app.schemas.sequence import OptimizeRequest
@@ -8,6 +10,7 @@ router = APIRouter(tags=["optimize"])
 
 @router.post("/optimize")
 def optimize(request: OptimizeRequest) -> dict:
+    """plan_item_ids의 objectiveScore 최소 순서를 탐색해 recommended_sequence와 비용 분석을 반환한다."""
     optimizer = Optimizer()
     return optimizer.optimize(
         plan_id=request.plan_id,

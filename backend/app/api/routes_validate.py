@@ -1,3 +1,5 @@
+"""순서 규칙 검증 라우터."""
+
 from fastapi import APIRouter
 
 from app.schemas.sequence import ValidateRequest
@@ -9,6 +11,7 @@ router = APIRouter(tags=["validate"])
 
 @router.post("/validate")
 def validate(request: ValidateRequest) -> dict:
+    """현재 순서의 모든 인접 전환 쌍을 규칙 엔진으로 검사해 위반 목록을 반환한다."""
     loader = DataLoader()
     rule_engine = RuleEngine()
     plan_item_map = loader.get_plan_item_map(request.plan_id)
