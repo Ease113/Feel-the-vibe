@@ -10,13 +10,6 @@ class CostPredictor:
 
     def __init__(self) -> None:
         self.model_version = MODEL_VERSION
-        self.uses_model = False
-        try:
-            import xgboost  # noqa: F401
-
-            self.uses_model = False
-        except Exception:
-            self.uses_model = False
 
     def predict_transition(
         self,
