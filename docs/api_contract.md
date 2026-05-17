@@ -120,7 +120,7 @@ DB/프론트 문서의 `sequenceViolation` 또는 `sequence_violation` 개념은
 
 ### `TransitionCost`
 
-인접한 두 `plan_item_id` 사이의 전환 비용입니다. `warning`은 `RiskWarning` 또는 `null`입니다.
+인접한 두 `plan_item_id` 사이의 전환 비용입니다. `warning`은 `RiskWarning` 또는 `null`입니다. 매칭된 색상 전환 룰이 없는 전환은 `rule_id`, `severity`, `warning`이 모두 `null`이며 `sequence_penalty`는 `0.0`입니다. 이 경우에도 `cost_dimensions.sequence_risk`는 no-rule baseline 값 `1.0`을 가집니다.
 
 ```json
 {
@@ -314,8 +314,8 @@ Response:
         "packaging_time": 12.46,
         "sequence_risk": 1.0
       },
-      "rule_id": "SR-000",
-      "severity": "LOW",
+      "rule_id": null,
+      "severity": null,
       "sequence_penalty": 0.0,
       "warning": null
     }
@@ -461,8 +461,8 @@ Response:
           "packaging_time": 12.46,
           "sequence_risk": 1.0
         },
-        "rule_id": "SR-000",
-        "severity": "LOW",
+        "rule_id": null,
+        "severity": null,
         "sequence_penalty": 0.0,
         "warning": null
       }
@@ -663,8 +663,8 @@ Response:
           "packaging_time": 12.46,
           "sequence_risk": 1.0
         },
-        "rule_id": "SR-000",
-        "severity": "LOW",
+        "rule_id": null,
+        "severity": null,
         "sequence_penalty": 0.0,
         "warning": null
       }
@@ -844,7 +844,6 @@ Response:
   "model_version": "heuristic-v1",
   "rule_version": "rules-2026.05.v1",
   "confirmed_at": "2026-05-17T10:30:00.000000+00:00",
-  "created_at": "2026-05-17T10:30:00.000000+00:00",
   "recommended_cost": {
     "sequence": ["PI-003", "PI-001", "PI-004", "PI-005", "PI-002"]
   },
@@ -854,7 +853,7 @@ Response:
 }
 ```
 
-신규 프론트엔드는 `recommended_cost_vector`, `confirmed_cost_vector`, `confirmed_at`을 우선 사용합니다. `recommended_cost`, `confirmed_cost`, `created_at`은 기존 demo DB 호환 필드이며 신규 의존 대상이 아닙니다. 존재하지 않는 `decision_id`는 404를 반환합니다.
+타임스탬프는 `confirmed_at` 하나로 통일합니다. (POST 응답의 `committed_at`은 DB_state v1.3 §13 표기를 따른 동일 값입니다.) 신규 프론트엔드는 `recommended_cost_vector`, `confirmed_cost_vector`, `confirmed_at`을 우선 사용합니다. `recommended_cost`, `confirmed_cost`는 기존 demo DB 호환 필드이며 신규 의존 대상이 아닙니다. 존재하지 않는 `decision_id`는 404를 반환합니다.
 
 ## GET `/dashboard`
 
@@ -872,7 +871,7 @@ Response:
   "kpi_trend": [
     {
       "decision_id": "DEC-ABC123DEF456",
-      "created_at": "2026-05-17T10:30:00.000000+00:00",
+      "confirmed_at": "2026-05-17T10:30:00.000000+00:00",
       "objective_score": 478047.01,
       "wash_cost": 168011.33,
       "sequence_risk": 55.0
@@ -891,7 +890,7 @@ Response:
       "objective_score": 478047.01,
       "risk_warning_count": 2,
       "reviewed": false,
-      "created_at": "2026-05-17T10:30:00.000000+00:00"
+      "confirmed_at": "2026-05-17T10:30:00.000000+00:00"
     }
   ],
   "weekly_summary": "이번 기간에는 3건의 생산순서 결정이 저장되었고, 고위험 색상 전환은 4건 감지되었습니다."

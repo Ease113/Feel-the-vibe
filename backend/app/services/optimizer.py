@@ -94,8 +94,16 @@ class SequenceEvaluator:
     ) -> dict[str, Any]:
         baseline = self.evaluate(plan_id, recommended_sequence, priority_profile)
         current = self.evaluate(plan_id, current_sequence, priority_profile)
-        delta = round(current["objective_score"] - baseline["objective_score"], 2)
+        recommended_score = baseline["objective_score"]
+        current_score = current["objective_score"]
+        delta = round(current_score - recommended_score, 2)
+        diff_rate = round(delta / recommended_score, 4) if recommended_score else 0.0
         comparison_state = {
+            "basis": "objectiveScore",
+            "recommended": recommended_score,
+            "current": current_score,
+            "diff": delta,
+            "diff_rate": diff_rate,
             "objective_delta": delta,
             "total_weighted_cost_delta": round(
                 current["total_weighted_cost"] - baseline["total_weighted_cost"], 2
