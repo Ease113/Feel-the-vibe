@@ -69,6 +69,17 @@ def test_ortools_open_path_does_not_pay_return_arc() -> None:
     assert Optimizer._solve_open_path(score_matrix, time_limit_sec=1.0) == [0, 1, 2]
 
 
+def test_optimize_uses_ortools_when_available() -> None:
+    pytest.importorskip("ortools")
+    response = client.post("/optimize", json={
+        "plan_id": "demo-plan-001",
+        "plan_item_ids": ["PI-001", "PI-002", "PI-003", "PI-004", "PI-005"],
+        "priority_profile": {},
+    })
+    assert response.status_code == 200
+    assert response.json()["optimizer_backend"] == "ortools-routing-open-path"
+
+
 def test_optimize_returns_plan_item_permutation() -> None:
     request = {
         "plan_id": "demo-plan-001",

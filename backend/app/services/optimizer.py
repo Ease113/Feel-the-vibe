@@ -1,5 +1,8 @@
+import logging
 from itertools import permutations
 from typing import Any
+
+_log = logging.getLogger(__name__)
 
 from app.core.config import MODEL_VERSION, RULE_VERSION
 from app.services.cost_predictor import CostPredictor
@@ -202,7 +205,8 @@ class Optimizer:
         try:
             score_matrix = self._build_score_matrix(plan_id, plan_item_ids, priority_profile)
             ordered_indices = self._solve_open_path(score_matrix)
-        except Exception:
+        except Exception as exc:
+            _log.warning("OR-tools sequence failed: %s", exc)
             return None
 
         if ordered_indices is None:
