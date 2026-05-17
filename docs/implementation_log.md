@@ -16,9 +16,8 @@
 ### fallback 기록
 
 - XGBoost 모델은 초기화 단계에서 실제 학습을 강제하지 않습니다. 모델 파일이 없으면 heuristic predictor를 사용합니다.
-- OR-tools는 코드 경로를 남기되, 초기 demo size에서는 brute-force fallback이 기본적으로 동작합니다.
+- OR-tools는 정상 설치 환경에서 실제로 동작하며 `optimizer_backend: "ortools-routing-open-path"`를 반환합니다. OR-tools가 없거나 실패하면 8개 이하 항목은 brute-force, 9개 이상은 nearest-neighbor로 fallback합니다.
 - 설명 생성은 실제 LLM 호출 없이 template 기반으로 시작합니다.
-- 현재 설치 환경에서는 OR-tools 패키지가 설치되어 있지만 demo size 5에서는 `ortools-present-bruteforce-demo` 경로로 동작합니다.
 
 ### 검증 결과
 
@@ -41,7 +40,7 @@
 - P0 API 전체 smoke test를 확대해야 합니다.
 - 프론트엔드 Drag & Drop UI는 다음 단계에서 dnd-kit으로 구현해야 합니다.
 - XGBoost 학습 스크립트는 현재 placeholder 수준이며, transition history 기반 학습 저장을 보강해야 합니다.
-- OR-tools 최적화는 설치 가능 환경에서 실제 routing 모델 경로를 검증해야 합니다.
+- ~~OR-tools 최적화는 설치 가능 환경에서 실제 routing 모델 경로를 검증해야 합니다.~~ 2026-05-17 검증 완료.
 
 ## 2026-05-17 API 명세 정합성 수정 (DB_state v1.3 정렬)
 
@@ -79,3 +78,23 @@
 - `TransitionCost.warnings` 배열화: DB_state §12 정의 부합용
 
 위 3건은 api_contract.md가 의도적으로 단순화를 선언한 영역(line 89 등)이므로 명시적 재결정 필요.
+
+## 2026-05-17 OR-tools 실제 동작 검증 + 진단 개선
+
+### 배경
+
+초기화 로그에 "demo size 5에서는 brute-force 경로로 동작"이라는 기록이 있었습니다. 현재 환경에서 검증한 결과, OR-tools는 정상 동작하며 `optimizer_backend: "ortools-routing-open-path"`를 반환합니다. 초기 로그는 다른 실행 환경(sandbox)에서 기록된 것으로, 현재 코드와 일치하지 않는 레이블(`ortools-present-bruteforce-demo`)을 참조하고 있었습니다.
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|---|---|---|
+| silent except 개선 | `backend/app/services/optimizer.py` | `except Exception: return None` → `except Exception as exc: _log.warning(...)` 로 변경. OR-tools 실패 시 원인을 WARNING 레벨로 기록합니다. |
+| OR-tools 동작 검증 테스트 추가 | `backend/tests/test_smoke.py` | `test_optimize_uses_ortools_when_available` 추가. OR-tools 설치 환경에서 `optimizer_backend == "ortools-routing-open-path"`를 어설션합니다. |
+
+### 검증 결과
+
+| 명령/확인 | 결과 |
+|---|---|
+| `python3 -m pytest tests/` | 6 passed (`test_health`, `test_rule_engine_black_to_white`, `test_rule_engine_metal_to_light`, `test_ortools_open_path_does_not_pay_return_arc`, **`test_optimize_uses_ortools_when_available`**, `test_optimize_returns_plan_item_permutation`) |
+| `POST /optimize` `optimizer_backend` | `"ortools-routing-open-path"` 확인 |
