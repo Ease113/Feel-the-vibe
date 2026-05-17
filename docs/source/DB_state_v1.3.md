@@ -303,12 +303,24 @@ XGBoost 모델은 REAL 값만 입력으로 받습니다. enum 레이블은 시�
     "rule_version": "rules-2026.05.v1",
     "rule_type": "color_transition",
     "from_category_in": ["metal", "special"],
-    "to_category": "normal",
+    "to_category": "mid",
     "penalty": 7,
     "risk": "mid",
     "commit_blocking": false,
-    "reason": "메탈/특수광택 이후 일반색 생산은 광택 잔류 리스크가 있습니다.",
-    "recommendation": "일반색을 먼저 생산하거나 세척 강도를 높이세요."
+    "reason": "메탈/특수광택 이후 일반색(mid) 생산은 광택 잔류 리스크가 있습니다.",
+    "recommendation": "일반색을 먼저 생산하거나 세척 시 광택 잔류 여부를 추가 확인하세요."
+  },
+  {
+    "rule_id": "SR-004",
+    "rule_version": "rules-2026.05.v1",
+    "rule_type": "color_transition",
+    "from_category_in": ["metal", "special"],
+    "to_category": "light",
+    "penalty": 8,
+    "risk": "high",
+    "commit_blocking": false,
+    "reason": "메탈/특수광택 이후 밝은색(light) 생산은 광택 잔류가 흰색 계열 품질에 직접 영향을 줍니다.",
+    "recommendation": "밝은색을 먼저 생산하거나, 메탈 계열 생산 직후 세척을 강화하세요."
   }
 ]
 ```
@@ -1132,7 +1144,7 @@ OR-tools는 복잡한 선후행이나 시간창 제약까지 구현하지 않고
 | `days_since_last_clean` | 4 | 0일 / 1일 / 3일 / 7일 |
 | `shift` | 2 | day / night |
 
-패턴당 건수 배분: 전체 1,500건을 144패턴에 균등 배분(패턴당 약 10~11건). 나머지 건수는 `sequence_rule`에서 `high risk`로 분류된 패턴(SR-001, SR-002)에 추가 배분합니다.
+패턴당 건수 배분: 전체 1,500건을 144패턴에 균등 배분(패턴당 약 10~11건). 나머지 건수는 `sequence_rules.json`에서 `risk == "high"`로 분류된 패턴에 추가 배분합니다.
 
 ### 20.4 비용 생성 규칙
 
@@ -1164,21 +1176,9 @@ downtime       = max(0, (8 + pigment_delta * 20 + gloss_delta * 10) * equip_fact
 
 **sequence_violation_ref 생성 기준**
 
-`sequence_rules.json`의 rule 조건과 동일하게 판정합니다.
+`sequence_violation_ref`는 별도 하드코딩 함수로 판정하지 않습니다. 합성 데이터 생성 스크립트는 `sequence_rules.json`을 읽고 Rule Engine과 동일한 matcher 규칙으로 룰이 매칭되면 `1`, 매칭되지 않으면 `0`으로 생성합니다.
 
-```python
-def get_violation_ref(from_sku, to_sku):
-    # SR-001: 검정 → 흰색
-    if from_sku.sku_id == "SKU-BLACK-001" and to_sku.sku_id == "SKU-WHITE-001":
-        return 1
-    # SR-002: 어두운색 → 밝은색
-    if from_sku.category == "dark" and to_sku.category == "light":
-        return 1
-    # SR-003: 메탈/특수광택 → 일반색
-    if from_sku.category in ("metal", "special") and to_sku.category == "normal":
-        return 1
-    return 0
-```
+현재 기준 룰은 `sequence_rules.json`이 source of truth입니다. 예를 들어 SR-003은 `from_category_in == ["metal", "special"]` 및 `to_category == "mid"` 조건이고, SR-004는 `metal/special -> light` 전환을 `high risk`로 분류합니다.
 
 ### 20.5 패키지 조건 배분
 

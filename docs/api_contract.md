@@ -2,6 +2,16 @@
 
 이 문서는 P0/P1 MVP에서 프론트엔드와 백엔드가 공유하는 API 계약입니다. 모든 sequence 필드는 `sku_id[]`가 아니라 `plan_item_id[]`입니다.
 
+## 공통 sequence 및 데모 기준
+
+기본 시연 생산계획은 `demo-plan-001`이며, 초기 화면과 API smoke test는 `PI-001`~`PI-005`를 기준으로 합니다.
+
+```json
+["PI-001", "PI-002", "PI-003", "PI-004", "PI-005"]
+```
+
+추천 순서, 현재 순서, 확정 순서는 모두 `plan_item_id[]`입니다. 프론트엔드 D&D key와 백엔드 평가 key는 `sku_id[]`가 아니라 항상 `plan_item_id[]`를 사용합니다.
+
 ## 공통 계산 기준
 
 ```text
@@ -12,9 +22,217 @@ objectiveScore = totalWeightedCost + sequencePenalty
 |---|---|
 | `transition_costs` | 인접 생산 항목 전환별 7차원 비용과 warning |
 | `aggregated_cost` | sequence 전체의 7차원 비용 합계 |
-| `total_weighted_cost` | priority profile multiplier를 적용한 비용 |
+| `total_weighted_cost` | 서버가 계산한 `applied_weights`를 연속 비용 차원에 적용한 비용 |
 | `sequence_penalty` | 색상 전환 rule penalty 합계 |
 | `objective_score` | 추천/현재안 비교 기준 점수 |
+
+## 공통 `priority_profile` 구조
+
+`priority_profile`은 DB State 기준의 운영자 우선순위 입력입니다. API wire format은 `snake_case`를 사용하지만 의미 구조는 `base_weight_profile_id`와 `priorities`로 고정합니다.
+
+운영자가 조정하는 항목은 `wash_cost`, `downtime`, `material_loss`, `packaging_time`, `labor_cost` 5개입니다. `setup_time`은 UI 선택 대상에서 제외하지만 서버 기본 가중치에는 포함합니다. `sequence_risk`는 우선순위 항목이 아니라 Rule Engine 결과로만 계산합니다.
+
+허용 라벨과 multiplier는 아래 값으로 고정합니다.
+
+| label | multiplier |
+|---|---:|
+| `VERY_LOW` | `0.70` |
+| `LOW` | `0.85` |
+| `NORMAL` | `1.00` |
+| `HIGH` | `1.15` |
+| `VERY_HIGH` | `1.30` |
+
+예시:
+
+```json
+{
+  "base_weight_profile_id": "factory_default_v1",
+  "priorities": {
+    "wash_cost": {"label": "HIGH", "multiplier": 1.15},
+    "downtime": {"label": "NORMAL", "multiplier": 1.0},
+    "material_loss": {"label": "NORMAL", "multiplier": 1.0},
+    "packaging_time": {"label": "LOW", "multiplier": 0.85},
+    "labor_cost": {"label": "NORMAL", "multiplier": 1.0}
+  }
+}
+```
+
+## 공통 `applied_weights` 구조
+
+`applied_weights`는 multiplier가 아닙니다. 서버가 공장 기본 가중치에 `priority_profile.priorities`의 multiplier를 적용한 뒤 합계가 1이 되도록 재정규화한 최종 비율입니다.
+
+`applied_weights`에는 `setup_time`, `wash_cost`, `downtime`, `material_loss`, `packaging_time`, `labor_cost`만 포함합니다. `sequence_risk`는 Rule Engine 평가 보조값이므로 `applied_weights`에 포함하지 않습니다.
+
+예시:
+
+```json
+{
+  "setup_time": 0.134,
+  "wash_cost": 0.232,
+  "downtime": 0.232,
+  "material_loss": 0.134,
+  "packaging_time": 0.089,
+  "labor_cost": 0.179
+}
+```
+
+## fallback 기준
+
+비용 예측 모델을 사용할 수 없으면 deterministic heuristic 비용 예측을 사용합니다. 최적화는 OR-tools 경로를 먼저 시도하고, 실패하거나 사용할 수 없으면 8개 이하 plan item은 brute-force 순열 탐색, 9개 이상은 nearest-neighbor fallback을 사용합니다.
+
+## 공통 DTO
+
+### `CostVector`
+
+7개 비용 차원입니다. `aggregated_cost`, `cost_dimensions`는 아래 key를 사용합니다. `sequence_risk`는 Rule Engine severity를 수치화한 평가 보조값이며, priority multiplier 대상이 아닙니다. `sequence_penalty`는 objective에 별도로 더하는 rule penalty입니다.
+
+DB/프론트 문서의 `sequenceViolation` 또는 `sequence_violation` 개념은 API 응답에서 `sequence_risk`와 `sequence_penalty`로 분리해 표현합니다.
+
+```json
+{
+  "setup_time": 32.32,
+  "labor_cost": 82410.9,
+  "material_loss": 4.41,
+  "wash_cost": 47632.0,
+  "downtime": 14.69,
+  "sequence_risk": 35.0,
+  "packaging_time": 12.94
+}
+```
+
+### `RiskWarning`
+
+색상 전환 rule이 매칭될 때 생성되는 soft warning입니다. 확정 차단에는 사용하지 않습니다.
+
+```json
+{
+  "rule_id": "SR-001",
+  "severity": "HIGH",
+  "from_plan_item_id": "PI-001",
+  "to_plan_item_id": "PI-002",
+  "penalty": 10.0,
+  "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
+  "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
+}
+```
+
+`severity`는 `LOW`, `MEDIUM`, `HIGH` 중 하나입니다. `message`는 `sequence_rules.json`의 `reason`을 응답용으로 전달한 값입니다.
+
+### `TransitionCost`
+
+인접한 두 `plan_item_id` 사이의 전환 비용입니다. `warning`은 `RiskWarning` 또는 `null`입니다.
+
+```json
+{
+  "from_plan_item_id": "PI-001",
+  "to_plan_item_id": "PI-002",
+  "from_sku_id": "SKU-BLACK-001",
+  "to_sku_id": "SKU-WHITE-001",
+  "cost_dimensions": {
+    "setup_time": 32.32,
+    "labor_cost": 82410.9,
+    "material_loss": 4.41,
+    "wash_cost": 47632.0,
+    "downtime": 14.69,
+    "packaging_time": 12.94,
+    "sequence_risk": 35.0
+  },
+  "rule_id": "SR-001",
+  "severity": "HIGH",
+  "sequence_penalty": 10.0,
+  "warning": {
+    "rule_id": "SR-001",
+    "severity": "HIGH",
+    "from_plan_item_id": "PI-001",
+    "to_plan_item_id": "PI-002",
+    "penalty": 10.0,
+    "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
+    "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
+  }
+}
+```
+
+### `SequenceEvaluation`
+
+하나의 sequence를 평가한 결과입니다. `/predict`의 `current_evaluation`, `baseline_evaluation`은 이 구조를 그대로 사용합니다.
+
+```json
+{
+  "sequence": ["PI-001", "PI-002", "PI-003", "PI-004", "PI-005"],
+  "transition_costs": [
+    {
+      "from_plan_item_id": "PI-001",
+      "to_plan_item_id": "PI-002",
+      "from_sku_id": "SKU-BLACK-001",
+      "to_sku_id": "SKU-WHITE-001",
+      "cost_dimensions": {
+        "setup_time": 32.32,
+        "labor_cost": 82410.9,
+        "material_loss": 4.41,
+        "wash_cost": 47632.0,
+        "downtime": 14.69,
+        "packaging_time": 12.94,
+        "sequence_risk": 35.0
+      },
+      "rule_id": "SR-001",
+      "severity": "HIGH",
+      "sequence_penalty": 10.0,
+      "warning": {
+        "rule_id": "SR-001",
+        "severity": "HIGH",
+        "from_plan_item_id": "PI-001",
+        "to_plan_item_id": "PI-002",
+        "penalty": 10.0,
+        "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
+        "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
+      }
+    }
+  ],
+  "aggregated_cost": {
+    "setup_time": 111.58,
+    "labor_cost": 284529.85,
+    "material_loss": 13.95,
+    "wash_cost": 168011.33,
+    "downtime": 50.71,
+    "sequence_risk": 55.0,
+    "packaging_time": 46.34
+  },
+  "total_weighted_cost": 478030.01,
+  "sequence_penalty": 17.0,
+  "objective_score": 478047.01,
+  "risk_warnings": [
+    {
+      "rule_id": "SR-001",
+      "severity": "HIGH",
+      "from_plan_item_id": "PI-001",
+      "to_plan_item_id": "PI-002",
+      "penalty": 10.0,
+      "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
+      "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
+    }
+  ],
+  "priority_profile": {
+    "base_weight_profile_id": "factory_default_v1",
+    "priorities": {
+      "wash_cost": {"label": "HIGH", "multiplier": 1.15},
+      "downtime": {"label": "NORMAL", "multiplier": 1.0},
+      "material_loss": {"label": "NORMAL", "multiplier": 1.0},
+      "packaging_time": {"label": "LOW", "multiplier": 0.85},
+      "labor_cost": {"label": "NORMAL", "multiplier": 1.0}
+    }
+  },
+  "applied_weights": {
+    "setup_time": 0.134,
+    "wash_cost": 0.232,
+    "downtime": 0.232,
+    "material_loss": 0.134,
+    "packaging_time": 0.089,
+    "labor_cost": 0.179
+  },
+  "model_version": "heuristic-v1",
+  "rule_version": "rules-2026.05.v1"
+}
+```
 
 ## GET `/health`
 
@@ -41,7 +259,14 @@ objectiveScore = totalWeightedCost + sequencePenalty
     "crew_size": 3
   },
   "default_priority_profile": {
-    "setup_time": {"label": "NORMAL", "multiplier": 1.0}
+    "base_weight_profile_id": "factory_default_v1",
+    "priorities": {
+      "wash_cost": {"label": "NORMAL", "multiplier": 1.0},
+      "downtime": {"label": "NORMAL", "multiplier": 1.0},
+      "material_loss": {"label": "NORMAL", "multiplier": 1.0},
+      "packaging_time": {"label": "NORMAL", "multiplier": 1.0},
+      "labor_cost": {"label": "NORMAL", "multiplier": 1.0}
+    }
   }
 }
 ```
@@ -55,8 +280,17 @@ Request:
 ```json
 {
   "plan_id": "demo-plan-001",
-  "plan_item_ids": ["PI-001", "PI-002"],
-  "priority_profile": {}
+  "plan_item_ids": ["PI-001", "PI-002", "PI-003", "PI-004", "PI-005"],
+  "priority_profile": {
+    "base_weight_profile_id": "factory_default_v1",
+    "priorities": {
+      "wash_cost": {"label": "HIGH", "multiplier": 1.15},
+      "downtime": {"label": "NORMAL", "multiplier": 1.0},
+      "material_loss": {"label": "NORMAL", "multiplier": 1.0},
+      "packaging_time": {"label": "LOW", "multiplier": 0.85},
+      "labor_cost": {"label": "NORMAL", "multiplier": 1.0}
+    }
+  }
 }
 ```
 
@@ -64,17 +298,48 @@ Response:
 
 ```json
 {
-  "recommended_sequence": ["PI-001", "PI-002"],
-  "transition_costs": [],
-  "aggregated_cost": {},
-  "total_weighted_cost": 0,
-  "sequence_penalty": 0,
-  "objective_score": 0,
+  "recommended_sequence": ["PI-003", "PI-001", "PI-004", "PI-005", "PI-002"],
+  "transition_costs": [
+    {
+      "from_plan_item_id": "PI-003",
+      "to_plan_item_id": "PI-001",
+      "from_sku_id": "SKU-METAL-001",
+      "to_sku_id": "SKU-BLACK-001",
+      "cost_dimensions": {
+        "setup_time": 27.09,
+        "labor_cost": 69087.15,
+        "material_loss": 3.18,
+        "wash_cost": 40982.0,
+        "downtime": 12.32,
+        "packaging_time": 12.46,
+        "sequence_risk": 1.0
+      },
+      "rule_id": "SR-000",
+      "severity": "LOW",
+      "sequence_penalty": 0.0,
+      "warning": null
+    }
+  ],
+  "aggregated_cost": {
+    "setup_time": 93.24,
+    "labor_cost": 237779.85,
+    "material_loss": 11.29,
+    "wash_cost": 144678.0,
+    "downtime": 42.39,
+    "sequence_risk": 4.0,
+    "packaging_time": 44.67
+  },
+  "total_weighted_cost": 404349.64,
+  "sequence_penalty": 0.0,
+  "objective_score": 404349.64,
   "risk_warnings": [],
   "model_version": "heuristic-v1",
-  "rule_version": "rules-2026.05.v1"
+  "rule_version": "rules-2026.05.v1",
+  "optimizer_backend": "ortools-routing-open-path"
 }
 ```
+
+`optimizer_backend`는 `trivial`, `ortools-routing-open-path`, `brute-force-fallback`, `nearest-neighbor-fallback` 중 하나입니다. 그 외 필드는 `SequenceEvaluation`에서 `sequence`, `priority_profile`, `applied_weights`를 제외하고 `recommended_sequence`를 추가한 구조입니다.
 
 ## POST `/predict`
 
@@ -85,9 +350,18 @@ Request:
 ```json
 {
   "plan_id": "demo-plan-001",
-  "recommended_sequence": ["PI-001"],
-  "current_sequence": ["PI-001"],
-  "priority_profile": {}
+  "recommended_sequence": ["PI-002", "PI-005", "PI-004", "PI-003", "PI-001"],
+  "current_sequence": ["PI-001", "PI-002", "PI-003", "PI-004", "PI-005"],
+  "priority_profile": {
+    "base_weight_profile_id": "factory_default_v1",
+    "priorities": {
+      "wash_cost": {"label": "HIGH", "multiplier": 1.15},
+      "downtime": {"label": "NORMAL", "multiplier": 1.0},
+      "material_loss": {"label": "NORMAL", "multiplier": 1.0},
+      "packaging_time": {"label": "LOW", "multiplier": 0.85},
+      "labor_cost": {"label": "NORMAL", "multiplier": 1.0}
+    }
+  }
 }
 ```
 
@@ -95,32 +369,536 @@ Response:
 
 ```json
 {
-  "current_evaluation": {},
-  "baseline_evaluation": {},
-  "comparison_state": {
-    "objective_delta": 0,
-    "is_better_than_baseline": false
+  "current_evaluation": {
+    "sequence": ["PI-001", "PI-002", "PI-003", "PI-004", "PI-005"],
+    "transition_costs": [
+      {
+        "from_plan_item_id": "PI-001",
+        "to_plan_item_id": "PI-002",
+        "from_sku_id": "SKU-BLACK-001",
+        "to_sku_id": "SKU-WHITE-001",
+        "cost_dimensions": {
+          "setup_time": 32.32,
+          "labor_cost": 82410.9,
+          "material_loss": 4.41,
+          "wash_cost": 47632.0,
+          "downtime": 14.69,
+          "packaging_time": 12.94,
+          "sequence_risk": 35.0
+        },
+        "rule_id": "SR-001",
+        "severity": "HIGH",
+        "sequence_penalty": 10.0,
+        "warning": {
+          "rule_id": "SR-001",
+          "severity": "HIGH",
+          "from_plan_item_id": "PI-001",
+          "to_plan_item_id": "PI-002",
+          "penalty": 10.0,
+          "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
+          "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
+        }
+      }
+    ],
+    "aggregated_cost": {
+      "setup_time": 111.58,
+      "labor_cost": 284529.85,
+      "material_loss": 13.95,
+      "wash_cost": 168011.33,
+      "downtime": 50.71,
+      "sequence_risk": 55.0,
+      "packaging_time": 46.34
+    },
+    "total_weighted_cost": 478030.01,
+    "sequence_penalty": 17.0,
+    "objective_score": 478047.01,
+    "risk_warnings": [
+      {
+        "rule_id": "SR-001",
+        "severity": "HIGH",
+        "from_plan_item_id": "PI-001",
+        "to_plan_item_id": "PI-002",
+        "penalty": 10.0,
+        "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
+        "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
+      }
+    ],
+    "priority_profile": {
+      "base_weight_profile_id": "factory_default_v1",
+      "priorities": {
+        "wash_cost": {"label": "HIGH", "multiplier": 1.15},
+        "downtime": {"label": "NORMAL", "multiplier": 1.0},
+        "material_loss": {"label": "NORMAL", "multiplier": 1.0},
+        "packaging_time": {"label": "LOW", "multiplier": 0.85},
+        "labor_cost": {"label": "NORMAL", "multiplier": 1.0}
+      }
+    },
+    "applied_weights": {
+      "setup_time": 0.134,
+      "wash_cost": 0.232,
+      "downtime": 0.232,
+      "material_loss": 0.134,
+      "packaging_time": 0.089,
+      "labor_cost": 0.179
+    },
+    "model_version": "heuristic-v1",
+    "rule_version": "rules-2026.05.v1"
   },
-  "comparison_summary": "현재 순서는 추천안과 동일합니다.",
-  "applied_weights": {}
+  "baseline_evaluation": {
+    "sequence": ["PI-003", "PI-001", "PI-004", "PI-005", "PI-002"],
+    "transition_costs": [
+      {
+        "from_plan_item_id": "PI-003",
+        "to_plan_item_id": "PI-001",
+        "from_sku_id": "SKU-METAL-001",
+        "to_sku_id": "SKU-BLACK-001",
+        "cost_dimensions": {
+          "setup_time": 27.09,
+          "labor_cost": 69087.15,
+          "material_loss": 3.18,
+          "wash_cost": 40982.0,
+          "downtime": 12.32,
+          "packaging_time": 12.46,
+          "sequence_risk": 1.0
+        },
+        "rule_id": "SR-000",
+        "severity": "LOW",
+        "sequence_penalty": 0.0,
+        "warning": null
+      }
+    ],
+    "aggregated_cost": {
+      "setup_time": 93.24,
+      "labor_cost": 237779.85,
+      "material_loss": 11.29,
+      "wash_cost": 144678.0,
+      "downtime": 42.39,
+      "sequence_risk": 4.0,
+      "packaging_time": 44.67
+    },
+    "total_weighted_cost": 404349.64,
+    "sequence_penalty": 0.0,
+    "objective_score": 404349.64,
+    "risk_warnings": [],
+    "priority_profile": {
+      "base_weight_profile_id": "factory_default_v1",
+      "priorities": {
+        "wash_cost": {"label": "HIGH", "multiplier": 1.15},
+        "downtime": {"label": "NORMAL", "multiplier": 1.0},
+        "material_loss": {"label": "NORMAL", "multiplier": 1.0},
+        "packaging_time": {"label": "LOW", "multiplier": 0.85},
+        "labor_cost": {"label": "NORMAL", "multiplier": 1.0}
+      }
+    },
+    "applied_weights": {
+      "setup_time": 0.134,
+      "wash_cost": 0.232,
+      "downtime": 0.232,
+      "material_loss": 0.134,
+      "packaging_time": 0.089,
+      "labor_cost": 0.179
+    },
+    "model_version": "heuristic-v1",
+    "rule_version": "rules-2026.05.v1"
+  },
+  "comparison_state": {
+    "basis": "objectiveScore",
+    "recommended": 404349.64,
+    "current": 478047.01,
+    "diff": 73697.37,
+    "diff_rate": 0.1823
+  },
+  "comparison_summary": "현재 순서는 추천안보다 목적 점수가 73697.37 높습니다.",
+  "applied_weights": {
+    "setup_time": 0.134,
+    "wash_cost": 0.232,
+    "downtime": 0.232,
+    "material_loss": 0.134,
+    "packaging_time": 0.089,
+    "labor_cost": 0.179
+  }
 }
 ```
+
+`current_evaluation`과 `baseline_evaluation`은 모두 `SequenceEvaluation`입니다. `comparison_state.diff`는 `current - recommended`입니다. `objective_delta`, `total_weighted_cost_delta`, `sequence_penalty_delta`, `risk_warning_delta`, `is_better_than_baseline`은 구현 편의를 위한 optional 확장 필드로만 사용할 수 있으며 핵심 계약은 `basis`, `recommended`, `current`, `diff`, `diff_rate`입니다.
 
 ## POST `/validate`
 
 현재 sequence의 색상 전환 warning을 반환합니다. P0에서는 확정 차단 없이 soft warning만 사용합니다.
 
+Request:
+
+```json
+{
+  "plan_id": "demo-plan-001",
+  "current_sequence": ["PI-001", "PI-002", "PI-003", "PI-004", "PI-005"]
+}
+```
+
+Response:
+
+```json
+{
+  "violation_count": 2,
+  "warnings": [
+    {
+      "rule_id": "SR-001",
+      "severity": "HIGH",
+      "from_plan_item_id": "PI-001",
+      "to_plan_item_id": "PI-002",
+      "penalty": 10.0,
+      "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
+      "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
+    },
+    {
+      "rule_id": "SR-003",
+      "severity": "MEDIUM",
+      "from_plan_item_id": "PI-003",
+      "to_plan_item_id": "PI-004",
+      "penalty": 7.0,
+      "message": "메탈/특수광택 이후 일반색(mid) 생산은 광택 잔류 리스크가 있습니다.",
+      "recommendation": "일반색을 먼저 생산하거나, 세척 시 광택 잔류 여부를 추가 확인하세요."
+    }
+  ]
+}
+```
+
+`message`는 `sequence_rules.json`의 `reason` 문구를 응답용으로 전달한 값입니다. MVP의 `/validate`는 soft warning만 반환하며 확정 차단 필드는 응답하지 않습니다.
+
 ## POST `/decisions`
 
 최종 확정 sequence를 SQLite에 저장합니다. 서버는 저장 전에 확정 sequence와 추천 sequence를 다시 평가합니다.
+
+Request:
+
+```json
+{
+  "plan_id": "demo-plan-001",
+  "recommended_sequence": ["PI-003", "PI-001", "PI-004", "PI-005", "PI-002"],
+  "confirmed_sequence": ["PI-001", "PI-002", "PI-003", "PI-004", "PI-005"],
+  "priority_profile": {
+    "base_weight_profile_id": "factory_default_v1",
+    "priorities": {
+      "wash_cost": {"label": "HIGH", "multiplier": 1.15},
+      "downtime": {"label": "NORMAL", "multiplier": 1.0},
+      "material_loss": {"label": "NORMAL", "multiplier": 1.0},
+      "packaging_time": {"label": "LOW", "multiplier": 0.85},
+      "labor_cost": {"label": "NORMAL", "multiplier": 1.0}
+    }
+  },
+  "decision_memo": "시연용 확정 순서"
+}
+```
+
+`recommended_cost`, `confirmed_cost`, `comparison_state`, `violation_details`는 request schema에 남아 있지만 저장 시 서버가 재계산하므로 신규 프론트엔드는 의존하지 않습니다.
+
+Response:
+
+```json
+{
+  "decision_id": "DEC-ABC123DEF456",
+  "committed_at": "2026-05-17T10:30:00.000000+00:00"
+}
+```
 
 ## GET `/decisions/{decision_id}`
 
 저장된 의사결정 로그를 조회합니다.
 
+Response:
+
+```json
+{
+  "decision_id": "DEC-ABC123DEF456",
+  "plan_id": "demo-plan-001",
+  "user_id": "demo-manager",
+  "recommended_sequence": ["PI-003", "PI-001", "PI-004", "PI-005", "PI-002"],
+  "confirmed_sequence": ["PI-001", "PI-002", "PI-003", "PI-004", "PI-005"],
+  "priority_profile": {
+    "base_weight_profile_id": "factory_default_v1",
+    "priorities": {
+      "wash_cost": {"label": "HIGH", "multiplier": 1.15},
+      "downtime": {"label": "NORMAL", "multiplier": 1.0},
+      "material_loss": {"label": "NORMAL", "multiplier": 1.0},
+      "packaging_time": {"label": "LOW", "multiplier": 0.85},
+      "labor_cost": {"label": "NORMAL", "multiplier": 1.0}
+    }
+  },
+  "applied_weights": {
+    "setup_time": 0.134,
+    "wash_cost": 0.232,
+    "downtime": 0.232,
+    "material_loss": 0.134,
+    "packaging_time": 0.089,
+    "labor_cost": 0.179
+  },
+  "context_snapshot": {
+    "visible": {
+      "lineId": "LINE-01",
+      "shift": "day",
+      "crewSize": 3
+    },
+    "resolved": {
+      "workerSkill": 0.6,
+      "equipmentCondition": 0.7,
+      "daysSinceLastClean": 2,
+      "dayOfWeek": 4,
+      "contextVersion": "context-v1"
+    }
+  },
+  "recommended_cost_vector": {
+    "sequence": ["PI-003", "PI-001", "PI-004", "PI-005", "PI-002"],
+    "transition_costs": [
+      {
+        "from_plan_item_id": "PI-003",
+        "to_plan_item_id": "PI-001",
+        "from_sku_id": "SKU-METAL-001",
+        "to_sku_id": "SKU-BLACK-001",
+        "cost_dimensions": {
+          "setup_time": 27.09,
+          "labor_cost": 69087.15,
+          "material_loss": 3.18,
+          "wash_cost": 40982.0,
+          "downtime": 12.32,
+          "packaging_time": 12.46,
+          "sequence_risk": 1.0
+        },
+        "rule_id": "SR-000",
+        "severity": "LOW",
+        "sequence_penalty": 0.0,
+        "warning": null
+      }
+    ],
+    "aggregated_cost": {
+      "setup_time": 93.24,
+      "labor_cost": 237779.85,
+      "material_loss": 11.29,
+      "wash_cost": 144678.0,
+      "downtime": 42.39,
+      "sequence_risk": 4.0,
+      "packaging_time": 44.67
+    },
+    "total_weighted_cost": 404349.64,
+    "sequence_penalty": 0.0,
+    "objective_score": 404349.64,
+    "risk_warnings": [],
+    "priority_profile": {
+      "base_weight_profile_id": "factory_default_v1",
+      "priorities": {
+        "wash_cost": {"label": "HIGH", "multiplier": 1.15},
+        "downtime": {"label": "NORMAL", "multiplier": 1.0},
+        "material_loss": {"label": "NORMAL", "multiplier": 1.0},
+        "packaging_time": {"label": "LOW", "multiplier": 0.85},
+        "labor_cost": {"label": "NORMAL", "multiplier": 1.0}
+      }
+    },
+    "applied_weights": {
+      "setup_time": 0.134,
+      "wash_cost": 0.232,
+      "downtime": 0.232,
+      "material_loss": 0.134,
+      "packaging_time": 0.089,
+      "labor_cost": 0.179
+    },
+    "model_version": "heuristic-v1",
+    "rule_version": "rules-2026.05.v1"
+  },
+  "confirmed_cost_vector": {
+    "sequence": ["PI-001", "PI-002", "PI-003", "PI-004", "PI-005"],
+    "transition_costs": [
+      {
+        "from_plan_item_id": "PI-001",
+        "to_plan_item_id": "PI-002",
+        "from_sku_id": "SKU-BLACK-001",
+        "to_sku_id": "SKU-WHITE-001",
+        "cost_dimensions": {
+          "setup_time": 32.32,
+          "labor_cost": 82410.9,
+          "material_loss": 4.41,
+          "wash_cost": 47632.0,
+          "downtime": 14.69,
+          "packaging_time": 12.94,
+          "sequence_risk": 35.0
+        },
+        "rule_id": "SR-001",
+        "severity": "HIGH",
+        "sequence_penalty": 10.0,
+        "warning": {
+          "rule_id": "SR-001",
+          "severity": "HIGH",
+          "from_plan_item_id": "PI-001",
+          "to_plan_item_id": "PI-002",
+          "penalty": 10.0,
+          "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
+          "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
+        }
+      }
+    ],
+    "aggregated_cost": {
+      "setup_time": 111.58,
+      "labor_cost": 284529.85,
+      "material_loss": 13.95,
+      "wash_cost": 168011.33,
+      "downtime": 50.71,
+      "sequence_risk": 55.0,
+      "packaging_time": 46.34
+    },
+    "total_weighted_cost": 478030.01,
+    "sequence_penalty": 17.0,
+    "objective_score": 478047.01,
+    "risk_warnings": [
+      {
+        "rule_id": "SR-001",
+        "severity": "HIGH",
+        "from_plan_item_id": "PI-001",
+        "to_plan_item_id": "PI-002",
+        "penalty": 10.0,
+        "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
+        "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
+      }
+    ],
+    "priority_profile": {
+      "base_weight_profile_id": "factory_default_v1",
+      "priorities": {
+        "wash_cost": {"label": "HIGH", "multiplier": 1.15},
+        "downtime": {"label": "NORMAL", "multiplier": 1.0},
+        "material_loss": {"label": "NORMAL", "multiplier": 1.0},
+        "packaging_time": {"label": "LOW", "multiplier": 0.85},
+        "labor_cost": {"label": "NORMAL", "multiplier": 1.0}
+      }
+    },
+    "applied_weights": {
+      "setup_time": 0.134,
+      "wash_cost": 0.232,
+      "downtime": 0.232,
+      "material_loss": 0.134,
+      "packaging_time": 0.089,
+      "labor_cost": 0.179
+    },
+    "model_version": "heuristic-v1",
+    "rule_version": "rules-2026.05.v1"
+  },
+  "transition_costs": [
+    {
+      "from_plan_item_id": "PI-001",
+      "to_plan_item_id": "PI-002",
+      "from_sku_id": "SKU-BLACK-001",
+      "to_sku_id": "SKU-WHITE-001",
+      "cost_dimensions": {
+        "setup_time": 32.32,
+        "labor_cost": 82410.9,
+        "material_loss": 4.41,
+        "wash_cost": 47632.0,
+        "downtime": 14.69,
+        "packaging_time": 12.94,
+        "sequence_risk": 35.0
+      },
+      "rule_id": "SR-001",
+      "severity": "HIGH",
+      "sequence_penalty": 10.0,
+      "warning": {
+        "rule_id": "SR-001",
+        "severity": "HIGH",
+        "from_plan_item_id": "PI-001",
+        "to_plan_item_id": "PI-002",
+        "penalty": 10.0,
+        "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
+        "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
+      }
+    }
+  ],
+  "total_weighted_cost": 478030.01,
+  "sequence_penalty": 17.0,
+  "objective_score": 478047.01,
+  "comparison_state": {
+    "basis": "objectiveScore",
+    "recommended": 404349.64,
+    "current": 478047.01,
+    "diff": 73697.37,
+    "diff_rate": 0.1823
+  },
+  "comparison_summary": "현재 순서는 추천안보다 목적 점수가 73697.37 높습니다.",
+  "cost_delta_vs_recommended": {
+    "downtime": 8.32,
+    "labor_cost": 46750.0,
+    "material_loss": 2.66,
+    "packaging_time": 1.67,
+    "sequence_risk": 51.0,
+    "setup_time": 18.34,
+    "wash_cost": 23333.33
+  },
+  "violation_count": 2,
+  "violation_details": [
+    {
+      "rule_id": "SR-001",
+      "severity": "HIGH",
+      "from_plan_item_id": "PI-001",
+      "to_plan_item_id": "PI-002",
+      "penalty": 10.0,
+      "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
+      "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
+    }
+  ],
+  "decision_memo": "시연용 확정 순서",
+  "reviewed": false,
+  "model_version": "heuristic-v1",
+  "rule_version": "rules-2026.05.v1",
+  "confirmed_at": "2026-05-17T10:30:00.000000+00:00",
+  "created_at": "2026-05-17T10:30:00.000000+00:00",
+  "recommended_cost": {
+    "sequence": ["PI-003", "PI-001", "PI-004", "PI-005", "PI-002"]
+  },
+  "confirmed_cost": {
+    "sequence": ["PI-001", "PI-002", "PI-003", "PI-004", "PI-005"]
+  }
+}
+```
+
+신규 프론트엔드는 `recommended_cost_vector`, `confirmed_cost_vector`, `confirmed_at`을 우선 사용합니다. `recommended_cost`, `confirmed_cost`, `created_at`은 기존 demo DB 호환 필드이며 신규 의존 대상이 아닙니다. 존재하지 않는 `decision_id`는 404를 반환합니다.
+
 ## GET `/dashboard`
 
 SQLite `decisions` 로그 기반 KPI 요약, 추이, 최근 결정을 반환합니다.
+
+Response:
+
+```json
+{
+  "dashboard_summary": {
+    "decision_count": 3,
+    "average_objective_score": 452123.45,
+    "high_risk_transition_count": 4
+  },
+  "kpi_trend": [
+    {
+      "decision_id": "DEC-ABC123DEF456",
+      "created_at": "2026-05-17T10:30:00.000000+00:00",
+      "objective_score": 478047.01,
+      "wash_cost": 168011.33,
+      "sequence_risk": 55.0
+    }
+  ],
+  "risk_patterns": [
+    {
+      "rule_id": "SR-001",
+      "count": 2
+    }
+  ],
+  "recent_decisions": [
+    {
+      "decision_id": "DEC-ABC123DEF456",
+      "plan_id": "demo-plan-001",
+      "objective_score": 478047.01,
+      "risk_warning_count": 2,
+      "reviewed": false,
+      "created_at": "2026-05-17T10:30:00.000000+00:00"
+    }
+  ],
+  "weekly_summary": "이번 기간에는 3건의 생산순서 결정이 저장되었고, 고위험 색상 전환은 4건 감지되었습니다."
+}
+```
+
+저장된 결정이 없으면 `decision_count`, `average_objective_score`, `high_risk_transition_count`는 `0`이고, `kpi_trend`, `risk_patterns`, `recent_decisions`는 빈 배열입니다. 이때 `weekly_summary`는 첫 생산순서를 확정하면 KPI가 생성된다는 안내 문구입니다.
 
 ## POST `/explain`
 
