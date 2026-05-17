@@ -1,13 +1,27 @@
-import type { DashboardResponse, PlanResponse } from './types';
+import type {
+  ComparisonState,
+  DashboardResponse,
+  DecisionsResponse,
+  ExplainResponse,
+  GetPlanData,
+  GetPlanResponse,
+  OptimizeResponse,
+  PredictResponse,
+  PriorityProfile,
+  RiskWarning,
+} from './types';
+import {
+  mapGetPlanResponse,
+  toDecisionsRequest,
+  toExplainRequest,
+  toOptimizeRequest,
+  toPredictRequest,
+} from './mappers';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000';
 
 /**
  * 공통 fetch 래퍼. Content-Type을 JSON으로 고정하고 응답 실패 시 Error를 throw한다.
- *
- * @param path - API 엔드포인트 경로 (예: '/health').
- * @param init - fetch RequestInit 옵션 (method, body 등).
- * @returns 파싱된 JSON 응답을 제네릭 타입 T로 캐스트해 반환한다.
  */
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -23,21 +37,69 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-/** 백엔드 헬스체크를 호출해 status, service 값을 반환한다. */
+/** 백엔드 헬스체크 */
 export function getHealth() {
   return request<{ status: string; service: string }>('/health');
 }
 
-/**
- * 지정된 plan_id의 계획 항목과 운영 컨텍스트를 조회한다.
- *
- * @param planId - 조회할 생산 계획 식별자 (예: 'demo-plan-001').
- */
-export function getPlan(planId: string) {
-  return request<PlanResponse>(`/plans/${planId}`);
+/** 생산계획 조회 — snake_case 응답을 camelCase 도메인으로 변환해 반환 */
+export function getPlan(planId: string): Promise<GetPlanData> {
+  return request<GetPlanResponse>(`/plans/${planId}`).then(mapGetPlanResponse);
 }
 
-/** KPI 대시보드 집계 데이터를 조회한다. */
+/** KPI 대시보드 (P1, wire format 그대로) */
 export function getDashboard() {
   return request<DashboardResponse>('/dashboard');
+}
+
+/** 추천 순서 생성 */
+export function postOptimize(input: {
+  planId: string;
+  planItemIds: string[];
+  priorityProfile: PriorityProfile;
+}) {
+  return request<OptimizeResponse>('/optimize', {
+    method: 'POST',
+    body: JSON.stringify(toOptimizeRequest(input)),
+  });
+}
+
+/** 현재 순서 비용·비교 평가 */
+export function postPredict(input: {
+  planId: string;
+  recommendedSequence: string[];
+  currentSequence: string[];
+  priorityProfile: PriorityProfile;
+}) {
+  return request<PredictResponse>('/predict', {
+    method: 'POST',
+    body: JSON.stringify(toPredictRequest(input)),
+  });
+}
+
+/** 최종 순서 확정 저장 */
+export function postDecisions(input: {
+  planId: string;
+  recommendedSequence: string[];
+  confirmedSequence: string[];
+  priorityProfile: PriorityProfile;
+  decisionMemo?: string;
+}) {
+  return request<DecisionsResponse>('/decisions', {
+    method: 'POST',
+    body: JSON.stringify(toDecisionsRequest(input)),
+  });
+}
+
+/** 설명 생성 (P1) */
+export function postExplain(input: {
+  planId: string;
+  currentSequence: string[];
+  comparisonState: ComparisonState;
+  riskWarnings: RiskWarning[];
+}) {
+  return request<ExplainResponse>('/explain', {
+    method: 'POST',
+    body: JSON.stringify(toExplainRequest(input)),
+  });
 }

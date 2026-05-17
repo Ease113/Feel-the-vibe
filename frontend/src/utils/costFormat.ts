@@ -7,3 +7,13 @@
 export function formatCost(value: number): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
+
+/**
+ * 점수(pt) 포맷 — 정수 반올림 후 천 단위 구분 + ' pt' 접미사.
+ *
+ * @param value - 포맷할 점수 값.
+ * @returns 예: 478047 → '478,047 pt'
+ */
+export function formatPt(value: number): string {
+  return Math.round(value).toLocaleString(undefined) + ' pt';
+}
