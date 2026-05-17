@@ -8,12 +8,13 @@ export interface PrioritySetting {
 export interface Sku {
   sku_id: string;
   sku_name: string;
-  color_family: string;
-  color_hex: string;
   category: string;
-  is_metallic: string;
-  brightness_level: string;
-  viscosity_level: string;
+  color_family: string;
+  pigment_intensity: string;
+  gloss_level: string;
+  viscosity: string;
+  hex_code: string;
+  color_hex?: string;
 }
 
 export interface PlanItem {

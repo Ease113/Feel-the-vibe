@@ -125,8 +125,13 @@ class SequenceEvaluator:
 class Optimizer:
     """Optimizes production sequence and falls back to brute force for demo plans."""
 
+    SCORE_SCALE = 100
+
     def __init__(self) -> None:
         self.evaluator = SequenceEvaluator()
+        self.loader = self.evaluator.loader
+        self.predictor = self.evaluator.predictor
+        self.rule_engine = self.evaluator.rule_engine
         self.ortools_available = self._check_ortools()
 
     def optimize(
@@ -137,12 +142,13 @@ class Optimizer:
     ) -> dict[str, Any]:
         if len(plan_item_ids) <= 1:
             sequence = plan_item_ids
-        elif len(plan_item_ids) <= 8:
-            sequence = self._brute_force(plan_id, plan_item_ids, priority_profile)
         else:
-            sequence = self._nearest_neighbor(plan_id, plan_item_ids, priority_profile)
+            sequence = self._ortools_sequence(plan_id, plan_item_ids, priority_profile)
+            if sequence is None:
+                sequence = self._fallback_sequence(plan_id, plan_item_ids, priority_profile)
 
         evaluation = self.evaluator.evaluate(plan_id, sequence, priority_profile)
+        optimizer_backend = self._backend_label(len(plan_item_ids), sequence)
         return {
             "recommended_sequence": sequence,
             "transition_costs": evaluation["transition_costs"],
@@ -153,12 +159,139 @@ class Optimizer:
             "risk_warnings": evaluation["risk_warnings"],
             "model_version": evaluation["model_version"],
             "rule_version": evaluation["rule_version"],
-            "optimizer_backend": (
-                "ortools-present-bruteforce-demo"
-                if self.ortools_available
-                else "brute-force-fallback"
-            ),
+            "optimizer_backend": optimizer_backend,
         }
+
+    def _backend_label(self, item_count: int, sequence: list[str]) -> str:
+        if item_count <= 1:
+            return "trivial"
+        if self.ortools_available and getattr(self, "_last_ortools_sequence", None) == sequence:
+            return "ortools-routing-open-path"
+        if item_count <= 8:
+            return "brute-force-fallback"
+        return "nearest-neighbor-fallback"
+
+    def _fallback_sequence(
+        self,
+        plan_id: str,
+        plan_item_ids: list[str],
+        priority_profile: dict | None,
+    ) -> list[str]:
+        if len(plan_item_ids) <= 8:
+            return self._brute_force(plan_id, plan_item_ids, priority_profile)
+        return self._nearest_neighbor(plan_id, plan_item_ids, priority_profile)
+
+    def _ortools_sequence(
+        self,
+        plan_id: str,
+        plan_item_ids: list[str],
+        priority_profile: dict | None,
+    ) -> list[str] | None:
+        self._last_ortools_sequence = None
+        if not self.ortools_available:
+            return None
+
+        try:
+            score_matrix = self._build_score_matrix(plan_id, plan_item_ids, priority_profile)
+            ordered_indices = self._solve_open_path(score_matrix)
+        except Exception:
+            return None
+
+        if ordered_indices is None:
+            return None
+
+        sequence = [plan_item_ids[index] for index in ordered_indices]
+        if sorted(sequence) != sorted(plan_item_ids) or len(sequence) != len(plan_item_ids):
+            return None
+
+        self._last_ortools_sequence = sequence
+        return sequence
+
+    def _build_score_matrix(
+        self,
+        plan_id: str,
+        plan_item_ids: list[str],
+        priority_profile: dict | None,
+    ) -> list[list[int]]:
+        plan_item_map = self.loader.get_plan_item_map(plan_id)
+        context = self.loader.get_plan_context(plan_id)
+        _, applied_weights = normalize_priority_profile(priority_profile)
+        matrix: list[list[int]] = []
+
+        for from_id in plan_item_ids:
+            from_item = plan_item_map[from_id]
+            row = []
+            for to_id in plan_item_ids:
+                if from_id == to_id:
+                    row.append(0)
+                    continue
+
+                to_item = plan_item_map[to_id]
+                costs = self.predictor.predict_transition(from_item, to_item, context)
+                rule_result = self.rule_engine.evaluate_transition(
+                    from_item["sku"],
+                    to_item["sku"],
+                    from_id,
+                    to_id,
+                )
+                cost_dimensions = {
+                    **costs,
+                    "sequence_risk": rule_result["sequence_risk"],
+                }
+                total_weighted_cost = sum(
+                    float(cost_dimensions[dimension]) * applied_weights[dimension]
+                    for dimension in COST_DIMENSIONS
+                )
+                objective_score = total_weighted_cost + float(rule_result["penalty"])
+                row.append(max(0, int(round(objective_score * self.SCORE_SCALE))))
+            matrix.append(row)
+
+        return matrix
+
+    @staticmethod
+    def _solve_open_path(score_matrix: list[list[int]], time_limit_sec: float = 5.0) -> list[int] | None:
+        from ortools.constraint_solver import routing_enums_pb2, pywrapcp
+
+        item_count = len(score_matrix)
+        dummy = item_count
+        node_count = item_count + 1
+        manager = pywrapcp.RoutingIndexManager(node_count, 1, dummy)
+        routing = pywrapcp.RoutingModel(manager)
+
+        def arc_cost(from_index: int, to_index: int) -> int:
+            from_node = manager.IndexToNode(from_index)
+            to_node = manager.IndexToNode(to_index)
+            if from_node == dummy or to_node == dummy:
+                return 0
+            return score_matrix[from_node][to_node]
+
+        transit_callback_index = routing.RegisterTransitCallback(arc_cost)
+        routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
+
+        search_parameters = pywrapcp.DefaultRoutingSearchParameters()
+        search_parameters.first_solution_strategy = (
+            routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
+        )
+        search_parameters.local_search_metaheuristic = (
+            routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
+        )
+        search_parameters.time_limit.FromMilliseconds(max(1, int(time_limit_sec * 1000)))
+
+        solution = routing.SolveWithParameters(search_parameters)
+        if solution is None:
+            return None
+
+        ordered_indices = []
+        index = routing.Start(0)
+        while not routing.IsEnd(index):
+            node = manager.IndexToNode(index)
+            if node != dummy:
+                ordered_indices.append(node)
+            index = solution.Value(routing.NextVar(index))
+
+        if sorted(ordered_indices) != list(range(item_count)):
+            return None
+        return ordered_indices
 
     def _brute_force(
         self,
@@ -199,7 +332,7 @@ class Optimizer:
     @staticmethod
     def _check_ortools() -> bool:
         try:
-            import ortools  # noqa: F401
+            from ortools.constraint_solver import pywrapcp  # noqa: F401
 
             return True
         except Exception:

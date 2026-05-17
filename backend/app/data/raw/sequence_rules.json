@@ -1,33 +1,76 @@
-{
-  "rule_version": "rules-2026.05.v1",
-  "rules": [
-    {
-      "rule_id": "SR-001",
-      "rule_type": "color_transition",
-      "condition": "black -> white",
-      "severity": "HIGH",
-      "penalty": 80.0
-    },
-    {
-      "rule_id": "SR-002",
-      "rule_type": "color_transition",
-      "condition": "dark -> light with brightness gap",
-      "severity": "MEDIUM_OR_HIGH",
-      "penalty": 35.0
-    },
-    {
-      "rule_id": "SR-003",
-      "rule_type": "color_transition",
-      "condition": "metallic -> non-metallic",
-      "severity": "MEDIUM",
-      "penalty": 32.0
-    },
-    {
-      "rule_id": "SR-004",
-      "rule_type": "color_transition",
-      "condition": "same SKU or same color family",
-      "severity": "LOW",
-      "penalty": 0.0
-    }
-  ]
-}
+[
+  {
+    "rule_id": "SR-001",
+    "rule_version": "rules-2026.05.v1",
+    "rule_type": "color_transition",
+    "from_sku_id": "SKU-BLACK-001",
+    "to_sku_id": "SKU-WHITE-001",
+    "from_category": null,
+    "to_category": null,
+    "from_category_in": null,
+    "to_category_in": null,
+    "penalty": 10,
+    "risk": "high",
+    "commit_blocking": false,
+    "reason": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
+    "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요.",
+    "note": "SKU 레벨 룰. SR-002보다 구체적이므로 Rule Engine이 먼저 적용합니다."
+  },
+  {
+    "rule_id": "SR-002",
+    "rule_version": "rules-2026.05.v1",
+    "rule_type": "color_transition",
+    "from_sku_id": null,
+    "to_sku_id": null,
+    "from_category": "dark",
+    "to_category": "light",
+    "from_category_in": null,
+    "to_category_in": null,
+    "penalty": 6,
+    "risk": "high",
+    "commit_blocking": false,
+    "reason": "어두운색(dark) 이후 밝은색(light) 생산은 잔류 안료 리스크가 있습니다.",
+    "recommendation": "가능하면 밝은색을 먼저 생산하거나, 세척 강도를 높이세요.",
+    "note": "category 레벨 룰. SKU-BLACK→SKU-WHITE는 SR-001이 우선 적용됩니다."
+  },
+  {
+    "rule_id": "SR-003",
+    "rule_version": "rules-2026.05.v1",
+    "rule_type": "color_transition",
+    "from_sku_id": null,
+    "to_sku_id": null,
+    "from_category": null,
+    "to_category": "mid",
+    "from_category_in": [
+      "metal",
+      "special"
+    ],
+    "to_category_in": null,
+    "penalty": 7,
+    "risk": "mid",
+    "commit_blocking": false,
+    "reason": "메탈/특수광택 이후 일반색(mid) 생산은 광택 잔류 리스크가 있습니다.",
+    "recommendation": "일반색을 먼저 생산하거나, 세척 시 광택 잔류 여부를 추가 확인하세요.",
+    "note": "v1.3 수정: 문서 초안의 to_category='normal'은 sku_master enum에 없음. mid가 실질적 일반색 카테고리이므로 mid로 변경."
+  },
+  {
+    "rule_id": "SR-004",
+    "rule_version": "rules-2026.05.v1",
+    "rule_type": "color_transition",
+    "from_sku_id": null,
+    "to_sku_id": null,
+    "from_category": null,
+    "to_category": "light",
+    "from_category_in": [
+      "metal",
+      "special"
+    ],
+    "to_category_in": null,
+    "penalty": 8,
+    "risk": "high",
+    "commit_blocking": false,
+    "reason": "메탈/특수광택 이후 밝은색(light) 생산은 광택 잔류가 흰색 계열 품질에 직접 영향을 줍니다.",
+    "recommendation": "밝은색을 먼저 생산하거나, 메탈 계열 생산 직후 세척을 강화하세요.",
+    "note": "SR-003보다 위험. 밝은색은 광택 잔류가 육안으로 확인됩니다."
+  }
+]

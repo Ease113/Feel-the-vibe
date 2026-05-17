@@ -1,21 +1,21 @@
 # SmartFactoryV2 데이터 스키마
 
-합성 데이터는 `scripts/seed_data.py`로 재생성합니다. P0에서는 CSV/JSON 파일을 단순 원천 데이터로 사용하고, SQLite에는 최종 decision 로그만 저장합니다.
+합성 데이터는 `scripts/seed_data.py`로 재생성합니다. P0에서는 CSV/JSON 파일을 단순 원천 데이터로 사용하고, SQLite에는 최종 decision 로그와 KPI 집계 원천만 저장합니다.
 
 ## `sku_master.csv`
 
-12개 도료 SKU 기준정보입니다.
+12개 도료 SKU 기준정보입니다. 컬럼은 `docs/source/DB_state_v1.3.md`의 canonical SKU 필드를 따릅니다.
 
 | 컬럼 | 설명 |
 |---|---|
 | `sku_id` | SKU 식별자 |
 | `sku_name` | 화면 표시 이름 |
+| `category` | `light`, `mid`, `dark`, `metal`, `special` |
 | `color_family` | 유사 색상군 |
-| `color_hex` | UI 색상칩 hex |
-| `category` | `light`, `mid`, `dark`, `metal`, `normal`, `special` |
-| `is_metallic` | `0` 또는 `1` |
-| `brightness_level` | 0~100 |
-| `viscosity_level` | 0~100 |
+| `pigment_intensity` | 안료 강도. `0.0~1.0` |
+| `gloss_level` | 광택도. `0.0~1.0` |
+| `viscosity` | 점도. `0.0~1.0` |
+| `hex_code` | UI 색상칩 hex |
 
 ## `daily_plan.csv`
 
@@ -51,11 +51,11 @@ XGBoost 학습 또는 검증용 합성 전환 이력입니다. 모델이 없으�
 
 ## `sequence_rules.json`
 
-P0 rule engine이 사용하는 명시적 색상 전환 rule입니다.
+P0 rule engine이 사용하는 명시적 색상 전환 rule입니다. 파일은 rule 배열이며 `from_sku_id`, `to_sku_id`, `from_category`, `to_category`, `from_category_in`, `to_category_in` 조합으로 매칭합니다.
 
 | rule | 설명 |
 |---|---|
-| `SR-001` | black -> white 고위험 |
-| `SR-002` | dark -> light brightness gap 기반 중/고위험 |
-| `SR-003` | metallic -> non-metallic 중/고위험 |
-| `SR-004` | 같은 SKU 또는 같은 color family 저위험 |
+| `SR-001` | `SKU-BLACK-001` → `SKU-WHITE-001` 고위험 |
+| `SR-002` | `dark` → `light` 고위험 |
+| `SR-003` | `metal`/`special` → `mid` 중위험 |
+| `SR-004` | `metal`/`special` → `light` 고위험 |

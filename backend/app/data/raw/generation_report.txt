@@ -1,0 +1,44 @@
+=== transition_history 생성 검증 리포트 ===
+
+  PASS  총 건수 = 1,500
+         실제=1500
+  PASS  결측값 없음
+         결측=0건
+  PASS  음수값 없음
+         음수=0건
+  PASS  violation_ref 비율 15~25%
+         실제=19.3%
+  PASS  고위험 패턴 wash_cost 평균이 전체보다 30% 이상 높음
+         전체평균=44,443원 / 고위험평균=65,780원 / 차이=48.0%
+  PASS  High 숙련도 setup_time < Low 숙련도 setup_time
+         High=7.53분 / Low=15.20분
+  PASS  worker_skill 허용값(0.3/0.6/0.9)만 존재
+         위반=0건
+  PASS  equipment_condition 허용값(0.3/0.7/1.0)만 존재
+         위반=0건
+  PASS  shift 허용값(day/night)만 존재
+         위반=0건
+  PASS  day_of_week 0~6 범위
+         위반=0건
+  PASS  package_size 허용값(1L/4L/18L)만 존재
+         위반=0건
+  PASS  모든 패턴이 train에 최소 1건 존재
+         train전용=0 / test전용=0
+  PASS  train/test 분할 = 1,200/300
+         train=1200건 / test=300건
+
+=== 주요 분포 요약 ===
+
+  worker_skill별 avg setup_time:
+    0.3(Low): 15.20분
+    0.6(Mid): 11.60분
+    0.9(High): 7.53분
+  equipment_condition별 avg wash_cost:
+    0.3(Poor): 67,391원
+    0.7(Normal): 43,538원
+    1.0(Good): 23,883원
+  shift별 avg labor_cost:
+    day: 59,623원
+    night: 67,655원
+  sequence_violation_ref: 0=1210건 / 1=290건 (19.3%)
+  패턴별 건수: min=10 / max=14 / mean=10.4

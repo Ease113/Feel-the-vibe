@@ -24,11 +24,11 @@ class CostPredictor:
     ) -> dict[str, float]:
         from_sku = from_item["sku"]
         to_sku = to_item["sku"]
-        brightness_gap = abs(float(from_sku["brightness_level"]) - float(to_sku["brightness_level"]))
-        viscosity_gap = abs(float(from_sku["viscosity_level"]) - float(to_sku["viscosity_level"]))
+        brightness_gap = abs(_brightness_level(from_sku) - _brightness_level(to_sku))
+        viscosity_gap = abs(_viscosity_level(from_sku) - _viscosity_level(to_sku))
         package_changed = from_item["package_size"] != to_item["package_size"]
         family_changed = from_sku["color_family"] != to_sku["color_family"]
-        metallic_change = int(from_sku["is_metallic"]) != int(to_sku["is_metallic"])
+        metallic_change = _is_metallic(from_sku) != _is_metallic(to_sku)
 
         complexity = 1.0
         complexity += brightness_gap / 75.0
@@ -55,3 +55,21 @@ class CostPredictor:
             "downtime": round(downtime, 2),
             "packaging_time": round(packaging_time, 2),
         }
+
+
+def _brightness_level(sku: dict[str, Any]) -> float:
+    if "brightness_level" in sku and sku["brightness_level"] not in ("", None):
+        return float(sku["brightness_level"])
+    return (1.0 - float(sku.get("pigment_intensity", 0.5))) * 100.0
+
+
+def _viscosity_level(sku: dict[str, Any]) -> float:
+    if "viscosity_level" in sku and sku["viscosity_level"] not in ("", None):
+        return float(sku["viscosity_level"])
+    return float(sku.get("viscosity", 0.5)) * 100.0
+
+
+def _is_metallic(sku: dict[str, Any]) -> bool:
+    if "is_metallic" in sku and sku["is_metallic"] not in ("", None):
+        return bool(int(sku["is_metallic"]))
+    return sku.get("category") in {"metal", "special"}

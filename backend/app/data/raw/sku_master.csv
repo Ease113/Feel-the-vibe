@@ -1,13 +1,13 @@
-sku_id,sku_name,color_family,color_hex,category,is_metallic,brightness_level,viscosity_level
-SKU-WHITE-001,Pure White,white,#F8F8F3,light,0,92,34
-SKU-IVORY-001,Warm Ivory,white,#F2E6C8,light,0,84,38
-SKU-YELLOW-001,Safety Yellow,yellow,#F6C945,light,0,78,42
-SKU-RED-001,Signal Red,red,#C83A32,mid,0,48,57
-SKU-BLUE-001,Deep Blue,blue,#1E4D8F,dark,0,30,60
-SKU-GREEN-001,Machine Green,green,#2B7A4B,mid,0,42,52
-SKU-GRAY-001,Neutral Gray,gray,#777C80,mid,0,55,45
-SKU-BLACK-001,Jet Black,black,#101214,dark,0,8,62
-SKU-SILVER-001,Metallic Silver,silver,#C4C8C8,metal,1,76,50
-SKU-GOLD-001,Metallic Gold,gold,#C8A641,metal,1,70,53
-SKU-ORANGE-001,Safety Orange,orange,#E56F24,mid,0,58,49
-SKU-PURPLE-001,Deep Purple,purple,#59306E,dark,0,25,58
+sku_id,sku_name,category,color_family,pigment_intensity,gloss_level,viscosity,hex_code
+SKU-WHITE-001,흰색,light,white,0.1,0.8,0.3,#FFFFFF
+SKU-IVORY-001,아이보리,light,white,0.2,0.7,0.32,#FFFFF0
+SKU-LGRAY-001,연회색,light,gray,0.3,0.6,0.35,#D3D3D3
+SKU-GRAY-001,회색,mid,gray,0.5,0.5,0.4,#808080
+SKU-BLUE-001,파랑,mid,blue,0.6,0.5,0.42,#4169E1
+SKU-RED-001,빨강,mid,red,0.65,0.5,0.45,#DC143C
+SKU-GREEN-001,녹색,mid,green,0.6,0.5,0.42,#228B22
+SKU-BROWN-001,갈색,dark,brown,0.7,0.4,0.48,#8B4513
+SKU-DGRAY-001,진회색,dark,gray,0.75,0.4,0.5,#404040
+SKU-BLACK-001,검정,dark,black,0.9,0.3,0.55,#111111
+SKU-METAL-001,금속색,metal,metal,0.7,0.95,0.65,#C0C0C0
+SKU-SPECIAL-001,특수광택,special,special,0.6,0.98,0.7,#FFD700
