@@ -6,10 +6,12 @@ interface Props {
 }
 
 export default function SkuCard({ item, index }: Props) {
+  const swatchColor = item.sku.hex_code ?? item.sku.color_hex ?? '#CCCCCC';
+
   return (
     <article className="sku-card">
       <span className="sequence-index">{index}</span>
-      <span className="color-swatch" style={{ backgroundColor: item.sku.color_hex }} />
+      <span className="color-swatch" style={{ backgroundColor: swatchColor }} />
       <div>
         <strong>{item.sku.sku_name}</strong>
         <p>

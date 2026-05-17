@@ -1,6 +1,6 @@
 plan_id,plan_item_id,plan_date,sku_id,quantity,package_size,due_priority,line_id
 demo-plan-001,PI-001,2026-05-17,SKU-BLACK-001,240.0,18L,3,LINE-01
 demo-plan-001,PI-002,2026-05-17,SKU-WHITE-001,180.0,4L,2,LINE-01
-demo-plan-001,PI-003,2026-05-17,SKU-SILVER-001,120.0,4L,4,LINE-01
+demo-plan-001,PI-003,2026-05-17,SKU-METAL-001,120.0,4L,4,LINE-01
 demo-plan-001,PI-004,2026-05-17,SKU-BLUE-001,210.0,18L,3,LINE-01
 demo-plan-001,PI-005,2026-05-17,SKU-GRAY-001,160.0,1L,5,LINE-01

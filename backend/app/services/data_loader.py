@@ -59,7 +59,11 @@ class DataLoader:
         path = self.data_dir / "sequence_rules.json"
         if not path.exists():
             return {"rule_version": "rules-2026.05.v1", "rules": []}
-        return json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(payload, list):
+            rule_version = payload[0].get("rule_version", "rules-2026.05.v1") if payload else "rules-2026.05.v1"
+            return {"rule_version": rule_version, "rules": payload}
+        return payload
 
 
 @lru_cache(maxsize=16)

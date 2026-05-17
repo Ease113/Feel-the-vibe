@@ -22,7 +22,7 @@ class DashboardService:
         trend = [
             {
                 "decision_id": decision["decision_id"],
-                "created_at": decision["created_at"],
+                "created_at": decision["confirmed_at"],
                 "objective_score": decision["confirmed_cost"].get("objective_score", 0.0),
                 "wash_cost": decision["confirmed_cost"].get("aggregated_cost", {}).get("wash_cost", 0.0),
                 "sequence_risk": decision["confirmed_cost"].get("aggregated_cost", {}).get("sequence_risk", 0.0),
@@ -36,7 +36,7 @@ class DashboardService:
                 "objective_score": decision["confirmed_cost"].get("objective_score", 0.0),
                 "risk_warning_count": len(decision["violation_details"]),
                 "reviewed": decision["reviewed"],
-                "created_at": decision["created_at"],
+                "created_at": decision["confirmed_at"],
             }
             for decision in decisions[:5]
         ]
