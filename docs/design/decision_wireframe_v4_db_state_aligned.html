@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>생산 순서 의사결정 — Wireframe v4.1 (DB_state v1.3)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root{
+  --font-sans:-apple-system,BlinkMacSystemFont,"Inter","Pretendard","Segoe UI",sans-serif;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --black:#0a0a0a;
+  --ink:#171717;
+  --ink-2:#404040;
+  --muted:#737373;
+  --subtle:#a3a3a3;
+  --line:#e5e5e5;
+  --line-strong:#d4d4d4;
+  --surface:#ffffff;
+  --surface-2:#fafafa;
+  --surface-3:#f5f5f5;
+  --canvas:#ebebeb;
+  --nav-bg:#0a0a0a;
+  --nav-ink:#e5e5e5;
+  --nav-muted:#a3a3a3;
+  --bad:#b91c1c;
+  --bad-bg:#fef2f2;
+  --good:#15803d;
+  --good-bg:#f0fdf4;
+  --radius:6px;
+  --shadow:0 1px 0 rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{margin:0;background:var(--canvas);font-family:var(--font-sans);color:var(--ink);-webkit-font-smoothing:antialiased}
+.wf{display:flex;width:100%;min-height:100vh;font-size:13px;color:var(--ink);background:var(--surface)}
+
+/* —— Nav —— */
+.nav{width:232px;flex-shrink:0;background:var(--nav-bg);border-right:1px solid #262626;padding:22px 14px;display:flex;flex-direction:column;gap:8px}
+.nav-logo{padding:0 4px 20px;display:grid;grid-template-columns:34px 1fr;column-gap:11px;align-items:center;border-bottom:1px solid #262626;margin-bottom:4px}
+.nav-logo-mark{width:34px;height:34px;background:var(--nav-bg);border:1px solid #404040;border-radius:var(--radius);display:flex;align-items:center;justify-content:center}
+.nav-logo-mark span{color:#fff;font-size:12px;font-weight:700;letter-spacing:.04em}
+.nav-logo-title{font-size:15px;font-weight:650;letter-spacing:-.02em;color:#fff;line-height:1.25}
+.nav-logo-sub{font-size:12px;color:var(--nav-muted);margin-top:2px}
+.nav-group{margin-bottom:14px}
+.nav-lbl{font-size:10px;font-weight:600;color:#525252;padding:8px 8px 6px;letter-spacing:.06em;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:9px;padding:10px 9px;border-radius:var(--radius);font-size:13px;color:var(--nav-ink);line-height:1.25;border:1px solid transparent;margin-bottom:2px}
+.nav-item.active{background:var(--surface);color:var(--black);font-weight:650;border-color:var(--surface)}
+.nav-item i{font-size:16px;opacity:.85}
+.nav-item:not(.active) i{color:var(--nav-muted)}
+
+/* —— Page shell —— */
+.page{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--surface-3)}
+.top-bar{padding:22px 28px 18px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;background:var(--surface-3);border-bottom:1px solid var(--line)}
+.top-plan{font-size:12px;color:var(--muted);font-family:var(--font-mono);margin-bottom:4px}
+.top-title{font-size:26px;font-weight:700;letter-spacing:-.04em;line-height:1.15;color:var(--black)}
+.top-status{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px;font-size:12px;color:var(--ink-2)}
+.status-sep{color:var(--subtle)}
+.status-warn{color:var(--bad);font-weight:600}
+.status-ok{color:var(--good);font-weight:600}
+.top-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0}
+
+/* —— Evaluation conditions —— */
+.eval-panel{margin:0 28px 14px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);overflow:hidden}
+.eval-details{display:block}
+.eval-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;cursor:pointer;list-style:none;user-select:none;background:var(--surface-2);border-bottom:1px solid transparent}
+.eval-summary::-webkit-details-marker{display:none}
+.eval-details[open] .eval-summary{border-bottom-color:var(--line)}
+.eval-summary-main{display:flex;align-items:center;gap:10px;min-width:0;flex:1;flex-wrap:wrap}
+.eval-summary-title{font-size:12px;font-weight:700;color:var(--black)}
+.eval-chevron{font-size:14px;color:var(--subtle);flex-shrink:0;transition:transform .15s ease}
+.eval-details[open] .eval-chevron{transform:rotate(180deg)}
+.eval-chips{display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-width:0}
+.eval-chip{font-size:11px;padding:4px 9px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-2);font-weight:600;white-space:nowrap}
+.eval-chip--hi{background:var(--black);border-color:var(--black);color:#fff}
+.eval-body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:16px;background:var(--surface)}
+.eval-sec-lbl{font-size:11px;font-weight:700;color:var(--black);margin-bottom:10px}
+.eval-ctx-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px 16px}
+.eval-ctx-plan{font-size:12px;font-family:var(--font-mono);color:var(--ink);font-weight:600}
+.eval-divider{height:1px;background:var(--line);margin:0}
+.ctx-field{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2)}
+.ctx-field label{color:var(--muted);font-weight:600}
+.ctx-field select{border:1px solid var(--line-strong);border-radius:var(--radius);padding:5px 10px;font-size:12px;background:var(--surface);color:var(--ink);font-family:var(--font-sans)}
+
+/* —— Badges & pills —— */
+.badge{display:inline-flex;align-items:center;justify-content:center;min-height:22px;font-size:10px;padding:3px 9px;border-radius:999px;font-weight:600;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);white-space:nowrap}
+.badge-draft{background:var(--black);color:#fff;border-color:var(--black);border-radius:var(--radius);padding:7px 14px;min-height:34px;font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+.badge-med{background:var(--surface);color:var(--ink);border-color:var(--ink-2);font-weight:650}
+.badge-low{background:var(--surface-2);color:var(--muted);border-color:var(--line);font-weight:600}
+.badge-high,.risk-pill{display:inline-flex;align-items:center;justify-content:center;background:var(--black);color:#fff;border:0;border-radius:999px;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;line-height:1;white-space:nowrap}
+.risk-pill--sm{font-size:8px;padding:3px 7px}
+.delta-bad{color:var(--bad);font-weight:650}
+.delta-good{color:var(--good);font-weight:650}
+.badge-delta--bad{background:var(--bad-bg);border:1px solid #fecaca;color:var(--bad);font-size:10px;padding:3px 8px;border-radius:999px;font-weight:650}
+.badge-delta--good{background:var(--good-bg);border:1px solid #bbf7d0;color:var(--good);font-size:10px;padding:3px 8px;border-radius:999px;font-weight:650}
+
+/* —— KPI summary —— */
+.kpi-lbl{font-size:10px;color:var(--muted);margin-bottom:5px;font-weight:600;letter-spacing:.03em;line-height:1.2}
+.kpi-val{font-size:17px;font-weight:650;letter-spacing:-.03em;line-height:1.1;font-variant-numeric:tabular-nums;color:var(--black)}
+.kpi-sub{font-size:10px;color:var(--subtle);margin-top:5px;line-height:1.35}
+.kpi-bad,.kpi-good{font-size:10px;font-weight:600;margin-top:5px;line-height:1.35}
+.kpi-bad{color:var(--bad)}
+.kpi-good{color:var(--good)}
+.kpi-warn{font-size:10px;color:var(--ink-2);margin-top:5px}
+.kpi-warn .risk-pill{vertical-align:middle;margin-left:2px}
+.side-kpi{background:var(--surface)}
+.kpi-hero{padding:12px 16px 14px;background:var(--surface-2);border-bottom:1px solid var(--line)}
+.kpi-hero .kpi-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.kpi-hero-val{font-size:30px;font-weight:700;letter-spacing:-.04em;line-height:1.05;font-variant-numeric:tabular-nums;color:var(--black)}
+.comp-summary{font-size:12px;color:var(--ink-2);margin-bottom:12px;line-height:1.5;padding:9px 11px;background:var(--surface-2);border-left:3px solid var(--black);border-radius:0 var(--radius) var(--radius) 0}
+.sku-id{font-size:10px;font-family:var(--font-mono);color:var(--subtle)}
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr}
+.kpi-mini{padding:11px 13px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface);min-height:76px;display:flex;flex-direction:column;justify-content:center}
+.kpi-mini:nth-child(2n){border-right:none}
+.kpi-mini:nth-child(n+3){border-bottom:none}
+.kpi-mini.is-loading{opacity:.45}
+
+/* —— Main layout —— */
+.body{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;flex:1;min-height:0;background:var(--surface-3);padding:0 28px 28px}
+.main-col{display:flex;flex-direction:column;min-width:0;overflow-y:auto;gap:14px}
+.section-hd{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.section-lbl{font-size:16px;font-weight:700;letter-spacing:-.025em;color:var(--black)}
+.section-sub{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* —— Panels —— */
+.workspace-box,.trans-box{border:1px solid var(--line-strong);border-radius:var(--radius);overflow:hidden;background:var(--surface);box-shadow:var(--shadow)}
+.panel-hd{font-size:12px;font-weight:650;background:var(--surface-2);color:var(--ink);padding:11px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.panel-hd-note{font-size:11px;font-weight:500;color:var(--muted)}
+.ws-toolbar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.btn-ghost,.btn-reset,.btn-sm,.btn-commit{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;border:1px solid var(--line-strong);border-radius:var(--radius);font-size:12px;font-weight:650;color:var(--ink);background:var(--surface);cursor:default}
+.btn-ghost{font-size:11px;padding:6px 10px}
+
+/* —— Sequence workspace (2-col) —— */
+.seq-cols-2{display:grid;grid-template-columns:minmax(180px,1fr) minmax(240px,1.15fr);gap:14px;padding:14px;background:var(--surface)}
+.seq-col{display:flex;flex-direction:column;min-width:0;border:1px solid var(--line-strong);border-radius:var(--radius);overflow:hidden}
+.seq-col-head{font-size:12px;font-weight:650;padding:11px 13px;background:var(--surface-2);border-bottom:1px solid var(--line);color:var(--ink)}
+.seq-col-head.current{background:var(--surface);border-left:3px solid var(--black)}
+.seq-col-head .score{font-weight:500;color:var(--muted);margin-left:4px}
+.seq-stack{padding:10px;display:flex;flex-direction:column;gap:7px;background:var(--surface);flex:1}
+
+/* —— SKU cards —— */
+.sku-card{display:flex;align-items:center;gap:10px;padding:10px 11px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--surface);min-height:52px}
+.sku-card--readonly{cursor:default}
+.sku-card.warn{border-color:var(--black);background:var(--surface-2);box-shadow:inset 3px 0 0 var(--black)}
+.sku-card.warn .sku-tag{color:var(--bad);font-weight:600}
+.sku-num{font-size:10px;color:#fff;min-width:22px;height:22px;border-radius:999px;background:var(--black);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-variant-numeric:tabular-nums}
+.sku-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0;border:1px solid var(--line-strong)}
+.sku-dot--xlight{background:#fafafa}
+.sku-dot--light{background:#e5e5e5}
+.sku-dot--mid{background:#a3a3a3}
+.sku-dot--dark{background:#262626;border-color:#171717}
+.sku-dot--metal{background:repeating-linear-gradient(-45deg,#d4d4d4,#d4d4d4 2px,#f5f5f5 2px,#f5f5f5 4px)}
+.sku-info{flex:1;min-width:0}
+.sku-name{font-size:13px;font-weight:650;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--black)}
+.sku-name--risk{display:flex;align-items:center;gap:6px;min-width:0}
+.sku-name--risk>span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.sku-tag{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.grip{font-size:16px;color:var(--subtle);flex-shrink:0}
+
+/* —— Transition table —— */
+.tbl-head{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 70px 28px;padding:11px 13px;background:var(--surface-2);font-size:11px;font-weight:650;color:var(--muted);border-bottom:1px solid var(--line);text-transform:uppercase;letter-spacing:.04em}
+.tbl-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 70px 28px;padding:12px 13px;font-size:12px;border-bottom:1px solid var(--line);align-items:center;background:var(--surface);color:var(--ink);cursor:default}
+.tbl-row:last-child{border-bottom:none}
+.tbl-row.exp,.tbl-row.highlight{background:var(--surface-2);font-weight:650}
+.exp-detail{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px;background:var(--surface);border-bottom:1px solid var(--line)}
+.exp-item{display:flex;flex-direction:column;gap:4px;padding:11px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface-2)}
+.exp-lbl{font-size:11px;color:var(--muted)}
+.exp-val{font-size:12px;font-weight:650;color:var(--black)}
+.tbl-foot{padding:8px 13px;font-size:11px;color:var(--muted);background:var(--surface-2);border-top:1px solid var(--line)}
+.tbl-chevron{text-align:center;color:var(--subtle)}
+.tbl-chevron i{font-size:12px}
+
+/* —— Side column —— */
+.side-col{display:flex;flex-direction:column;gap:14px;min-width:0;padding-bottom:2px}
+.side-card{border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);overflow:hidden;flex-shrink:0}
+.side-sec{padding:16px;background:var(--surface)}
+.side-sec-lbl{font-size:12px;font-weight:700;color:var(--black);margin-bottom:10px}
+.comp-delta-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-size:12px;color:var(--ink-2);gap:8px}
+.comp-delta-row:last-child{margin-bottom:0}
+.delta-val{font-size:11px;padding:3px 8px;border-radius:999px;font-weight:650;font-variant-numeric:tabular-nums;border:1px solid var(--line-strong);background:var(--surface-3);color:var(--ink)}
+.delta-val.delta-bad{background:var(--bad-bg);border-color:#fecaca;color:var(--bad)}
+.delta-val.delta-good{background:var(--good-bg);border-color:#bbf7d0;color:var(--good)}
+.diff-list{font-size:12px;color:var(--ink-2);line-height:1.55;margin-bottom:12px}
+.diff-list li{margin-left:16px;margin-bottom:4px}
+
+/* —— Priority (segment only) —— */
+.pri-block{margin-bottom:12px}
+.pri-block:last-child{margin-bottom:0}
+.pri-lbl-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.pri-lbl{font-size:11px;color:var(--ink-2);font-weight:650}
+.pri-val{font-size:11px;color:var(--ink);font-weight:650}
+.pri-segs{display:flex;gap:3px;flex-wrap:wrap}
+.seg{font-size:9px;padding:4px 6px;border:1px solid var(--line-strong);border-radius:999px;color:var(--muted);background:var(--surface)}
+.seg.on{background:var(--black);border-color:var(--black);color:#fff;font-weight:650}
+
+/* —— Warnings —— */
+.warn-item{padding:11px 12px;border-radius:var(--radius);margin-bottom:6px;border:1px solid var(--black);background:var(--surface);cursor:default}
+.warn-item:last-child{margin-bottom:0}
+.warn-item.highlight{box-shadow:0 0 0 2px var(--black)}
+.warn-title{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;font-weight:700;margin-bottom:5px}
+.warn-body{font-size:11px;color:var(--muted);line-height:1.5}
+.warn-hint{font-size:10px;color:var(--subtle);margin-top:8px}
+
+/* —— Explanation (P1, always visible) —— */
+.explain-sec .stale-box{margin-bottom:10px}
+
+/* —— Commit —— */
+.stale-box{background:var(--black);border-radius:var(--radius);padding:11px 12px;font-size:11px;color:#fff;margin-bottom:9px;line-height:1.55}
+.memo-area{width:100%;border:1px solid var(--line-strong);border-radius:var(--radius);padding:10px 11px;font-size:12px;color:var(--ink);background:var(--surface-2);resize:none;height:56px;font-family:var(--font-sans);line-height:1.5}
+.commit-note{font-size:11px;color:var(--muted);margin:8px 0;line-height:1.45}
+.commit-risk{display:flex;align-items:flex-start;gap:6px;font-size:11px;color:var(--bad);margin-bottom:10px;line-height:1.4}
+.commit-risk input{margin-top:2px;accent-color:var(--black)}
+.side-footer{padding:14px 16px;display:flex;flex-direction:column;gap:8px;background:var(--surface);border-top:1px solid var(--line)}
+.btn-commit{padding:12px;border:none;background:var(--black);color:#fff;width:100%;font-size:13px}
+.action-footer{display:flex;justify-content:flex-end;padding:4px 0}
+
+@media(max-width:1100px){
+  .body{grid-template-columns:1fr}
+  .nav{width:200px}
+}
+@media(max-width:800px){
+  .wf{flex-direction:column}
+  .nav{width:100%;flex-direction:row;flex-wrap:wrap;padding:12px}
+  .nav-logo{border-bottom:0;margin-bottom:0;padding-bottom:0}
+  .nav-group{margin-bottom:0}
+  .nav-group[style]{margin-top:0!important}
+  .seq-cols-2{grid-template-columns:1fr}
+  .top-bar,.eval-panel,.body{padding-left:16px;padding-right:16px}
+  .eval-panel{margin-left:16px;margin-right:16px}
+}
+</style>
+</head>
+<body>
+
+<div class="wf">
+
+  <nav class="nav" aria-label="주 메뉴">
+    <div class="nav-logo">
+      <div class="nav-logo-mark"><span>SF</span></div>
+      <div>
+        <div class="nav-logo-title">Smart Factory</div>
+        <div class="nav-logo-sub">Lee Yuan</div>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-lbl">계획 수립</div>
+      <div class="nav-item active"><i class="ti ti-layout-dashboard" aria-hidden="true"></i>워크벤치</div>
+      <div class="nav-item"><i class="ti ti-list" aria-hidden="true"></i>시퀀스 계획</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-lbl">운영 관리</div>
+      <div class="nav-item"><i class="ti ti-chart-bar" aria-hidden="true"></i>KPI 검토</div>
+      <div class="nav-item"><i class="ti ti-alert-triangle" aria-hidden="true"></i>위험 패턴</div>
+      <div class="nav-item"><i class="ti ti-history" aria-hidden="true"></i>의사결정 로그</div>
+    </div>
+    <div class="nav-group" style="margin-top:auto">
+      <div class="nav-item"><i class="ti ti-settings" aria-hidden="true"></i>설정</div>
+    </div>
+  </nav>
+
+  <main class="page">
+
+    <header class="top-bar">
+      <div>
+        <div class="top-plan">demo-plan-001 · LINE-01</div>
+        <h1 class="top-title">생산 순서 의사결정</h1>
+        <div class="top-status">
+          <span class="status-warn">추천안 대비 +18.2%</span>
+          <span class="status-sep">·</span>
+          <span class="status-warn">고위험 전환 1건</span>
+          <span class="status-sep">·</span>
+          <span class="status-ok">확정 가능</span>
+        </div>
+      </div>
+      <div class="top-right">
+        <span class="badge badge-draft">편집 중</span>
+      </div>
+    </header>
+
+    <section class="eval-panel" aria-label="평가 조건">
+      <details class="eval-details">
+        <summary class="eval-summary">
+          <div class="eval-summary-main">
+            <span class="eval-summary-title">평가 조건</span>
+            <div class="eval-chips">
+              <span class="eval-chip">주간 · 3명</span>
+              <span class="eval-chip eval-chip--hi">세척 높음</span>
+              <span class="eval-chip">다운타임 보통</span>
+            </div>
+          </div>
+          <i class="ti ti-chevron-down eval-chevron" aria-hidden="true"></i>
+        </summary>
+        <div class="eval-body">
+          <div>
+            <div class="eval-sec-lbl">운영 컨텍스트</div>
+            <div class="eval-ctx-row">
+              <span class="eval-ctx-plan">LINE-01</span>
+              <span class="ctx-field"><label for="wf-shift">교대</label><select id="wf-shift"><option selected>주간</option><option>야간</option></select></span>
+              <span class="ctx-field"><label for="wf-crew">투입 인원</label><select id="wf-crew"><option>2</option><option selected>3</option><option>4</option></select></span>
+            </div>
+          </div>
+          <div class="eval-divider"></div>
+          <div>
+            <div class="eval-sec-lbl">운영 우선순위</div>
+
+            <div class="pri-block">
+              <div class="pri-lbl-row"><span class="pri-lbl">세척 비용</span><span class="pri-val">높음</span></div>
+              <div class="pri-segs"><span class="seg">최저</span><span class="seg">낮음</span><span class="seg">보통</span><span class="seg on">높음</span><span class="seg">최고</span></div>
+            </div>
+            <div class="pri-block">
+              <div class="pri-lbl-row"><span class="pri-lbl">다운타임</span><span class="pri-val">보통</span></div>
+              <div class="pri-segs"><span class="seg">최저</span><span class="seg">낮음</span><span class="seg on">보통</span><span class="seg">높음</span><span class="seg">최고</span></div>
+            </div>
+            <div class="pri-block">
+              <div class="pri-lbl-row"><span class="pri-lbl">원자재 손실</span><span class="pri-val">보통</span></div>
+              <div class="pri-segs"><span class="seg">최저</span><span class="seg">낮음</span><span class="seg on">보통</span><span class="seg">높음</span><span class="seg">최고</span></div>
+            </div>
+            <div class="pri-block">
+              <div class="pri-lbl-row"><span class="pri-lbl">패키징 전환</span><span class="pri-val">낮음</span></div>
+              <div class="pri-segs"><span class="seg">최저</span><span class="seg on">낮음</span><span class="seg">보통</span><span class="seg">높음</span><span class="seg">최고</span></div>
+            </div>
+            <div class="pri-block">
+              <div class="pri-lbl-row"><span class="pri-lbl">작업자 비용</span><span class="pri-val">보통</span></div>
+              <div class="pri-segs"><span class="seg">최저</span><span class="seg">낮음</span><span class="seg on">보통</span><span class="seg">높음</span><span class="seg">최고</span></div>
+            </div>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <div class="body">
+
+      <div class="main-col">
+
+        <section aria-label="생산 순서">
+          <div class="section-hd">
+            <div>
+              <h2 class="section-lbl">생산 순서</h2>
+              <p class="section-sub">현재안을 드래그해 순서를 바꿉니다</p>
+            </div>
+          </div>
+          <div class="workspace-box">
+            <div class="panel-hd">
+              <span>추천안 vs 현재안</span>
+              <span class="panel-hd-note">낮은 점수가 유리</span>
+            </div>
+            <div class="ws-toolbar">
+              <span style="font-size:11px;color:var(--muted)">카드 key = <code style="font-family:var(--font-mono);font-size:10px">plan_item_id</code> · 고위험 전환은 카드 강조 · 전환 분석 · 주의 패널에서 확인 · 초기화는 하단 ActionFooter</span>
+            </div>
+
+            <!-- demo-plan-001 · POST /optimize recommended_sequence (= DB baselineSequence): PI-003→PI-001→PI-004→PI-005→PI-002 -->
+            <!-- current_sequence: PI-004→PI-001→PI-005→PI-002→PI-003 -->
+            <div class="seq-cols-2">
+
+              <div class="seq-col">
+                <div class="seq-col-head">AI 추천안 <span class="score">404,350 pt</span></div>
+                <div class="seq-stack">
+                  <div class="sku-card sku-card--readonly"><span class="sku-num">1</span><span class="sku-dot sku-dot--xlight"></span><div class="sku-info"><div class="sku-name">흰색 200L</div><div class="sku-tag">밝은색</div></div></div>
+                  <div class="sku-card sku-card--readonly"><span class="sku-num">2</span><span class="sku-dot sku-dot--dark"></span><div class="sku-info"><div class="sku-name">검정 120L</div><div class="sku-tag">어두운색</div></div></div>
+                  <div class="sku-card sku-card--readonly"><span class="sku-num">3</span><span class="sku-dot sku-dot--mid"></span><div class="sku-info"><div class="sku-name">빨강 150L</div><div class="sku-tag">중간색</div></div></div>
+                  <div class="sku-card sku-card--readonly"><span class="sku-num">4</span><span class="sku-dot sku-dot--light"></span><div class="sku-info"><div class="sku-name">아이보리 90L</div><div class="sku-tag">밝은색</div></div></div>
+                  <div class="sku-card sku-card--readonly"><span class="sku-num">5</span><span class="sku-dot sku-dot--metal"></span><div class="sku-info"><div class="sku-name">금속색 80L</div><div class="sku-tag">메탈</div></div></div>
+                </div>
+              </div>
+
+              <div class="seq-col">
+                <div class="seq-col-head current">현재안 <span class="score">478,047 pt</span></div>
+                <div class="seq-stack">
+                  <div class="sku-card warn"><span class="sku-num">1</span><span class="sku-dot sku-dot--dark"></span><div class="sku-info"><div class="sku-name sku-name--risk"><span>검정 120L</span><span class="risk-pill risk-pill--sm">HIGH</span></div><div class="sku-tag">다음: 흰색 전환 · SR-001</div></div><i class="ti ti-grip-vertical grip" aria-hidden="true"></i></div>
+                  <div class="sku-card"><span class="sku-num">2</span><span class="sku-dot sku-dot--xlight"></span><div class="sku-info"><div class="sku-name">흰색 200L</div><div class="sku-tag">밝은색</div></div><i class="ti ti-grip-vertical grip" aria-hidden="true"></i></div>
+                  <div class="sku-card"><span class="sku-num">3</span><span class="sku-dot sku-dot--metal"></span><div class="sku-info"><div class="sku-name">금속색 80L</div><div class="sku-tag">메탈</div></div><i class="ti ti-grip-vertical grip" aria-hidden="true"></i></div>
+                  <div class="sku-card"><span class="sku-num">4</span><span class="sku-dot sku-dot--mid"></span><div class="sku-info"><div class="sku-name">빨강 150L</div><div class="sku-tag">중간색</div></div><i class="ti ti-grip-vertical grip" aria-hidden="true"></i></div>
+                  <div class="sku-card"><span class="sku-num">5</span><span class="sku-dot sku-dot--light"></span><div class="sku-info"><div class="sku-name">아이보리 90L</div><div class="sku-tag">밝은색</div></div><i class="ti ti-grip-vertical grip" aria-hidden="true"></i></div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <section aria-label="전환 분석">
+          <div class="section-hd">
+            <div>
+              <h2 class="section-lbl">전환 분석</h2>
+              <p class="section-sub">행을 눌러 상세 비용·권장 조치 확인</p>
+            </div>
+          </div>
+          <div class="trans-box">
+            <div class="tbl-head">
+              <span>전환</span><span>셋업</span><span>세척 비용</span><span>다운타임</span><span>위험도</span><span></span>
+            </div>
+            <div class="tbl-row exp highlight">
+              <span>검정 → 흰색</span><span>32분</span><span>47,632 pt</span><span>14.7분</span><span><span class="risk-pill">HIGH</span></span>
+              <span class="tbl-chevron"><i class="ti ti-chevron-down" aria-hidden="true"></i></span>
+            </div>
+            <div class="exp-detail">
+              <div class="exp-item"><div class="exp-lbl">세척 비용</div><div class="exp-val">47,632 pt</div></div>
+              <div class="exp-item"><div class="exp-lbl">다운타임</div><div class="exp-val">14.7분</div></div>
+              <div class="exp-item"><div class="exp-lbl">품질 리스크</div><div class="exp-val">SR-001 · HIGH</div></div>
+              <div class="exp-item"><div class="exp-lbl">권장 조치</div><div class="exp-val">세척 공정 추가</div></div>
+            </div>
+            <div class="tbl-row">
+              <span>금속색 → 빨강</span><span>22분</span><span>31,840 pt</span><span>12분</span><span><span class="badge badge-med">MED</span></span>
+              <span class="tbl-chevron"><i class="ti ti-chevron-right" aria-hidden="true"></i></span>
+            </div>
+            <div class="tbl-row">
+              <span>빨강 → 아이보리</span><span>18분</span><span>24,120 pt</span><span>10분</span><span><span class="badge badge-low">LOW</span></span>
+              <span class="tbl-chevron"><i class="ti ti-chevron-right" aria-hidden="true"></i></span>
+            </div>
+            <div class="tbl-foot">인접 전환 4건 · 표시 3행 · rule 경고 1건 · 펼침 1건 · 전체 보기</div>
+          </div>
+        </section>
+
+        <div class="action-footer">
+          <button type="button" class="btn-reset"><i class="ti ti-refresh" style="font-size:11px" aria-hidden="true"></i>AI 추천 순서로 되돌리기</button>
+        </div>
+
+      </div>
+
+      <aside class="side-col" aria-label="평가·확정">
+
+        <div class="side-card">
+          <div class="panel-hd">평가 요약</div>
+          <div class="side-kpi">
+            <div class="kpi-hero">
+              <div class="kpi-lbl">종합 비용 점수</div>
+              <div class="kpi-hero-val">478,047 pt</div>
+              <div class="kpi-sub">478,030 가중 비용 + 17 순서 패널티</div>
+              <div class="kpi-bad"><span class="badge-delta--bad">▲ 추천안 대비 +18.2%</span></div>
+            </div>
+            <div class="kpi-grid">
+              <div class="kpi-mini">
+                <div class="kpi-lbl">가중 총비용</div>
+                <div class="kpi-val">478,030 pt</div>
+              </div>
+              <div class="kpi-mini">
+                <div class="kpi-lbl">순서 패널티</div>
+                <div class="kpi-val">17 pt</div>
+                <div class="kpi-sub">색상 전환</div>
+              </div>
+              <div class="kpi-mini">
+                <div class="kpi-lbl">세척 비용</div>
+                <div class="kpi-val">168k pt</div>
+                <div class="kpi-bad">▲ +23k</div>
+              </div>
+              <div class="kpi-mini">
+                <div class="kpi-lbl">위험 전환</div>
+                <div class="kpi-val">1건</div>
+                <div class="kpi-warn"><span class="risk-pill risk-pill--sm">HIGH</span> 1건</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="side-card">
+          <div class="panel-hd">추천안과의 차이</div>
+          <div class="side-sec">
+            <p class="comp-summary">현재안은 검정→흰색 전환 penalty로 추천안보다 최종 점수가 높습니다. 경고를 확인한 뒤 확정할 수 있습니다.</p>
+            <ul class="diff-list">
+              <li>검정 → 흰색 전환 추가</li>
+              <li>금속색 → 일반색 전환 제거</li>
+            </ul>
+            <div class="side-sec-lbl" style="margin-top:4px">비용 항목 변화</div>
+            <div class="comp-delta-row">
+              <span>작업자 비용</span>
+              <span class="delta-val delta-bad">▲ +46,750 pt</span>
+            </div>
+            <div class="comp-delta-row">
+              <span>세척 비용</span>
+              <span class="delta-val delta-bad">▲ +23,333 pt</span>
+            </div>
+            <div class="comp-delta-row">
+              <span>셋업 시간</span>
+              <span class="delta-val delta-bad">▲ +18.3분</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="side-card">
+          <div class="panel-hd">주의 전환</div>
+          <div class="side-sec">
+            <div class="warn-item highlight">
+              <div class="warn-title"><span>검정 → 흰색 · SR-001</span><span class="risk-pill">패널티 +10</span></div>
+              <div class="warn-body">잔류 안료로 인한 품질 리스크. 세척 공정 추가를 권장합니다.</div>
+            </div>
+            <p class="warn-hint">클릭 시 전환 분석·순서 구간으로 이동 (구현 시)</p>
+          </div>
+        </div>
+
+        <div class="side-card">
+          <div class="panel-hd">AI 설명 <span class="panel-hd-note">(선택)</span></div>
+          <div class="side-sec explain-sec">
+            <div class="stale-box">
+              <i class="ti ti-alert-circle" style="font-size:10px;vertical-align:-1px" aria-hidden="true"></i>
+              현재 순서와 맞지 않는 설명입니다. 재생성하려면 버튼을 누르세요.
+            </div>
+            <button type="button" class="btn-sm" style="width:100%"><i class="ti ti-refresh" style="font-size:11px" aria-hidden="true"></i>설명 재생성</button>
+          </div>
+        </div>
+
+        <div class="side-card">
+          <div class="panel-hd">최종 확정</div>
+          <div class="side-sec">
+            <label for="memo" style="font-size:12px;font-weight:600;color:var(--ink-2);display:block;margin-bottom:6px">확정 메모 <span style="font-weight:500;color:var(--muted)">(선택)</span></label>
+            <textarea id="memo" class="memo-area" placeholder="확정 사유 또는 메모 입력"></textarea>
+            <p class="commit-note">위험 전환이 있어도 확정할 수 있습니다.</p>
+            <label class="commit-risk">
+              <input type="checkbox" />
+              <span>고위험 전환 1건을 확인했습니다</span>
+            </label>
+          </div>
+          <div class="side-footer">
+            <button type="button" class="btn-commit"><i class="ti ti-check" style="font-size:12px" aria-hidden="true"></i>최종 순서 확정</button>
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
+  </main>
+</div>
+
+
+</body>
+</html>
