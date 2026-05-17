@@ -60,7 +60,6 @@ class DecisionLogger:
             # Legacy schema compatibility for existing demo DB files.
             "recommended_cost": json.dumps(recommended_cost, ensure_ascii=False),
             "confirmed_cost": json.dumps(confirmed_cost, ensure_ascii=False),
-            "created_at": confirmed_at,
         }
 
         with get_connection() as connection:
@@ -87,10 +86,8 @@ class DecisionLogger:
 
     def list_decisions(self) -> list[dict[str, Any]]:
         with get_connection() as connection:
-            columns = self._table_columns(connection, "decisions")
-            order_column = "confirmed_at" if "confirmed_at" in columns else "created_at"
             rows = connection.execute(
-                f"SELECT * FROM decisions ORDER BY {order_column} DESC"
+                "SELECT * FROM decisions ORDER BY confirmed_at DESC"
             ).fetchall()
         return [self._row_to_decision(row) for row in rows]
 
@@ -127,8 +124,6 @@ class DecisionLogger:
         data["confirmed_cost"] = data.get("confirmed_cost_vector") or json.loads(
             data.get("confirmed_cost", "{}")
         )
-        data["created_at"] = data.get("confirmed_at") or data.get("created_at")
-        data["confirmed_at"] = data.get("confirmed_at") or data["created_at"]
         return data
 
     @staticmethod

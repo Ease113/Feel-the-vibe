@@ -42,3 +42,40 @@
 - 프론트엔드 Drag & Drop UI는 다음 단계에서 dnd-kit으로 구현해야 합니다.
 - XGBoost 학습 스크립트는 현재 placeholder 수준이며, transition history 기반 학습 저장을 보강해야 합니다.
 - OR-tools 최적화는 설치 가능 환경에서 실제 routing 모델 경로를 검증해야 합니다.
+
+## 2026-05-17 API 명세 정합성 수정 (DB_state v1.3 정렬)
+
+### 배경
+
+다른 세션 검토와 본 세션 진단을 통해 API 응답이 DB_state v1.3 정본과 어긋난 4건을 식별했습니다. 모든 변경은 정본 계약 회복 방향이며 새 drift를 만들지 않습니다.
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|---|---|---|
+| `comparison_state` core 필드 누락 | `backend/app/services/optimizer.py` | `SequenceEvaluator.compare()`에 `basis`, `recommended`, `current`, `diff`, `diff_rate` 5필드 추가. 기존 `objective_delta` 등 확장 필드는 하위 호환 유지 |
+| 타임스탬프 필드명 혼용 (`committed_at`/`confirmed_at`/`created_at`) | `backend/app/services/decision_logger.py`, `backend/app/services/dashboard_service.py` | `confirmed_at`으로 통일. `_row_to_decision`에서 `created_at` legacy 채우기 제거, `list_decisions` ORDER BY를 `confirmed_at` 고정, dashboard trend/recent 항목 키를 `confirmed_at`으로 변경. POST `/decisions` 응답의 `committed_at`은 DB_state §13 표기를 따라 유지 |
+| SR-000 sentinel 사용 | `backend/app/services/rule_engine.py` | 매칭 룰 없는 케이스를 `rule_id=None, severity=None`으로 반환 (DB_state §12 `ruleId: string \| null` 부합) |
+| 문서 동기화 | `docs/api_contract.md` | 모든 예시에서 SR-000을 `null`로 교체, `created_at` 라인 제거, TransitionCost DTO에 no-rule 케이스 설명 한 줄 추가 |
+
+### DB_state v1.3 출처 매핑
+
+- `comparison_state` 구조: §6.8, §7.1, §12 line 815-821
+- `confirmed_at`: §6 line 361, §13 line 834, `schema.sql:166`
+- `ruleId: string \| null`: §12 line 802
+
+### 검증 결과
+
+| 명령/확인 | 결과 |
+|---|---|
+| `python3 -m pytest tests/` | 5 passed (`test_health`, `test_rule_engine_black_to_white`, `test_rule_engine_metal_to_light`, `test_ortools_open_path_does_not_pay_return_arc`, `test_optimize_returns_plan_item_permutation`) |
+| `SequenceEvaluator.compare()` 직접 호출 | `comparison_state.basis == "objectiveScore"`, 5 core 필드 모두 존재 |
+| `RuleEngine.evaluate_transition()` no-rule 경로 | `SKU-BLACK-001 -> SKU-METAL-001` 전환에서 `rule_id=None, severity=None` 확인 |
+
+### 보류 항목 (별도 결정 필요)
+
+- `sequence_risk` continuous score(1/18/35) → DB_state `sequenceViolation` binary(0/1) 정렬: ML 학습 데이터, aggregated_cost, dashboard KPI 모두 영향
+- `Warning.type`, `Warning.commitBlocking` 필드 추가: DB_state §12 정의 부합용
+- `TransitionCost.warnings` 배열화: DB_state §12 정의 부합용
+
+위 3건은 api_contract.md가 의도적으로 단순화를 선언한 영역(line 89 등)이므로 명시적 재결정 필요.

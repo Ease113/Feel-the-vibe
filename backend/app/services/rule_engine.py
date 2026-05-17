@@ -29,10 +29,7 @@ class RuleEngine:
             if self._matches(rule, from_sku, to_sku):
                 return self._rule_result(rule, from_plan_item_id, to_plan_item_id)
 
-        if from_sku["sku_id"] == to_sku["sku_id"] or from_sku["color_family"] == to_sku["color_family"]:
-            return self._result("SR-000", "LOW", 0.0, from_plan_item_id, to_plan_item_id, "")
-
-        return self._result("SR-000", "LOW", 0.0, from_plan_item_id, to_plan_item_id, "")
+        return self._result(None, None, 0.0, from_plan_item_id, to_plan_item_id, "")
 
     @staticmethod
     def _matches(rule: dict[str, Any], from_sku: dict[str, Any], to_sku: dict[str, Any]) -> bool:
@@ -89,8 +86,8 @@ class RuleEngine:
 
     @staticmethod
     def _result(
-        rule_id: str,
-        severity: str,
+        rule_id: str | None,
+        severity: str | None,
         penalty: float,
         from_plan_item_id: str,
         to_plan_item_id: str,
@@ -108,6 +105,7 @@ class RuleEngine:
                 "message": message,
                 "recommendation": recommendation,
             }
+        # no-rule baseline은 1.0, 매칭 룰의 severity 점수는 LOW/MEDIUM/HIGH 매핑
         risk_score = {"LOW": 1.0, "MEDIUM": 18.0, "HIGH": 35.0}.get(severity, 1.0)
         return {
             "rule_id": rule_id,
