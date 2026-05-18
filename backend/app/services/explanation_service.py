@@ -38,7 +38,9 @@ class ExplanationService:
         elif warnings:
             lines.append("일부 색상 전환 구간에서 세척 확인이 필요한 warning이 감지되었습니다.")
 
-        wash_priority = priority.get("wash_cost", {})
+        # priority_profile은 contract nested 또는 legacy flat 둘 다 들어올 수 있다.
+        priorities = priority.get("priorities", priority) if isinstance(priority, dict) else {}
+        wash_priority = priorities.get("wash_cost", {}) if isinstance(priorities, dict) else {}
         wash_label = wash_priority.get("label") if isinstance(wash_priority, dict) else wash_priority
         if wash_label in {"HIGH", "VERY_HIGH"}:
             lines.append("세척 비용 우선순위가 높게 설정되어 유사 색상군을 연속 배치하는 방향이 유리합니다.")
