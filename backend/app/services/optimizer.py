@@ -9,7 +9,11 @@ _log = logging.getLogger(__name__)
 from app.core.config import MODEL_VERSION, RULE_VERSION
 from app.services.cost_predictor import CostPredictor
 from app.services.data_loader import DataLoader
-from app.services.priority import COST_DIMENSIONS, normalize_priority_profile
+from app.services.priority import (
+    BASE_WEIGHT_DIMENSIONS,
+    COST_DIMENSIONS,
+    normalize_priority_profile,
+)
 from app.services.rule_engine import RuleEngine
 
 
@@ -83,9 +87,11 @@ class SequenceEvaluator:
             )
 
         aggregated = {key: round(value, 2) for key, value in aggregated.items()}
+        # total_weighted_cost는 XGBoost 6차원 비용에만 적용 (DB_state v1.3 §74).
+        # sequence_risk는 Rule Engine 산출이라 sequence_penalty로만 objective에 더해진다.
         total_weighted_cost = sum(
             aggregated[dimension] * applied_weights[dimension]
-            for dimension in COST_DIMENSIONS
+            for dimension in BASE_WEIGHT_DIMENSIONS
         )
         objective_score = total_weighted_cost + sequence_penalty
 
@@ -294,7 +300,7 @@ class Optimizer:
                 }
                 total_weighted_cost = sum(
                     float(cost_dimensions[dimension]) * applied_weights[dimension]
-                    for dimension in COST_DIMENSIONS
+                    for dimension in BASE_WEIGHT_DIMENSIONS
                 )
                 objective_score = total_weighted_cost + float(rule_result["penalty"])
                 row.append(max(0, int(round(objective_score * self.SCORE_SCALE))))
