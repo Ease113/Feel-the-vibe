@@ -110,7 +110,7 @@ DB/프론트 문서의 `sequenceViolation` 또는 `sequence_violation` 개념은
   "severity": "HIGH",
   "from_plan_item_id": "PI-001",
   "to_plan_item_id": "PI-002",
-  "penalty": 10.0,
+  "penalty": 35.0,
   "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
   "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
 }
@@ -139,13 +139,13 @@ DB/프론트 문서의 `sequenceViolation` 또는 `sequence_violation` 개념은
   },
   "rule_id": "SR-001",
   "severity": "HIGH",
-  "sequence_penalty": 10.0,
+  "sequence_penalty": 35.0,
   "warning": {
     "rule_id": "SR-001",
     "severity": "HIGH",
     "from_plan_item_id": "PI-001",
     "to_plan_item_id": "PI-002",
-    "penalty": 10.0,
+    "penalty": 35.0,
     "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
     "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
   }
@@ -176,13 +176,13 @@ DB/프론트 문서의 `sequenceViolation` 또는 `sequence_violation` 개념은
       },
       "rule_id": "SR-001",
       "severity": "HIGH",
-      "sequence_penalty": 10.0,
+      "sequence_penalty": 35.0,
       "warning": {
         "rule_id": "SR-001",
         "severity": "HIGH",
         "from_plan_item_id": "PI-001",
         "to_plan_item_id": "PI-002",
-        "penalty": 10.0,
+        "penalty": 35.0,
         "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
         "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
       }
@@ -197,16 +197,16 @@ DB/프론트 문서의 `sequenceViolation` 또는 `sequence_violation` 개념은
     "sequence_risk": 55.0,
     "packaging_time": 46.34
   },
-  "total_weighted_cost": 478030.01,
-  "sequence_penalty": 17.0,
-  "objective_score": 478047.01,
+  "total_weighted_cost": 89942.18,
+  "sequence_penalty": 53.0,
+  "objective_score": 89995.18,
   "risk_warnings": [
     {
       "rule_id": "SR-001",
       "severity": "HIGH",
       "from_plan_item_id": "PI-001",
       "to_plan_item_id": "PI-002",
-      "penalty": 10.0,
+      "penalty": 35.0,
       "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
       "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
     }
@@ -329,9 +329,9 @@ Response:
     "sequence_risk": 4.0,
     "packaging_time": 44.67
   },
-  "total_weighted_cost": 404349.64,
+  "total_weighted_cost": 76155.71,
   "sequence_penalty": 0.0,
-  "objective_score": 404349.64,
+  "objective_score": 76155.71,
   "risk_warnings": [],
   "model_version": "heuristic-v1",
   "rule_version": "rules-2026.05.v1",
@@ -388,13 +388,13 @@ Response:
         },
         "rule_id": "SR-001",
         "severity": "HIGH",
-        "sequence_penalty": 10.0,
+        "sequence_penalty": 35.0,
         "warning": {
           "rule_id": "SR-001",
           "severity": "HIGH",
           "from_plan_item_id": "PI-001",
           "to_plan_item_id": "PI-002",
-          "penalty": 10.0,
+          "penalty": 35.0,
           "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
           "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
         }
@@ -409,16 +409,16 @@ Response:
       "sequence_risk": 55.0,
       "packaging_time": 46.34
     },
-    "total_weighted_cost": 478030.01,
-    "sequence_penalty": 17.0,
-    "objective_score": 478047.01,
+    "total_weighted_cost": 89942.18,
+    "sequence_penalty": 53.0,
+    "objective_score": 89995.18,
     "risk_warnings": [
       {
         "rule_id": "SR-001",
         "severity": "HIGH",
         "from_plan_item_id": "PI-001",
         "to_plan_item_id": "PI-002",
-        "penalty": 10.0,
+        "penalty": 35.0,
         "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
         "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
       }
@@ -476,9 +476,9 @@ Response:
       "sequence_risk": 4.0,
       "packaging_time": 44.67
     },
-    "total_weighted_cost": 404349.64,
+    "total_weighted_cost": 76155.71,
     "sequence_penalty": 0.0,
-    "objective_score": 404349.64,
+    "objective_score": 76155.71,
     "risk_warnings": [],
     "priority_profile": {
       "base_weight_profile_id": "factory_default_v1",
@@ -503,12 +503,12 @@ Response:
   },
   "comparison_state": {
     "basis": "objectiveScore",
-    "recommended": 404349.64,
-    "current": 478047.01,
-    "diff": 73697.37,
-    "diff_rate": 0.1823
+    "recommended": 76155.71,
+    "current": 89995.18,
+    "diff": 13839.47,
+    "diff_rate": 0.1817
   },
-  "comparison_summary": "현재 순서는 추천안보다 목적 점수가 73697.37 높습니다.",
+  "comparison_summary": "현재 순서는 추천안보다 목적 점수가 13839.47 높습니다.",
   "applied_weights": {
     "setup_time": 0.134,
     "wash_cost": 0.232,
@@ -546,7 +546,7 @@ Response:
       "severity": "HIGH",
       "from_plan_item_id": "PI-001",
       "to_plan_item_id": "PI-002",
-      "penalty": 10.0,
+      "penalty": 35.0,
       "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
       "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
     },
@@ -555,7 +555,7 @@ Response:
       "severity": "MEDIUM",
       "from_plan_item_id": "PI-003",
       "to_plan_item_id": "PI-004",
-      "penalty": 7.0,
+      "penalty": 18.0,
       "message": "메탈/특수광택 이후 일반색(mid) 생산은 광택 잔류 리스크가 있습니다.",
       "recommendation": "일반색을 먼저 생산하거나, 세척 시 광택 잔류 여부를 추가 확인하세요."
     }
@@ -678,9 +678,9 @@ Response:
       "sequence_risk": 4.0,
       "packaging_time": 44.67
     },
-    "total_weighted_cost": 404349.64,
+    "total_weighted_cost": 76155.71,
     "sequence_penalty": 0.0,
-    "objective_score": 404349.64,
+    "objective_score": 76155.71,
     "risk_warnings": [],
     "priority_profile": {
       "base_weight_profile_id": "factory_default_v1",
@@ -722,13 +722,13 @@ Response:
         },
         "rule_id": "SR-001",
         "severity": "HIGH",
-        "sequence_penalty": 10.0,
+        "sequence_penalty": 35.0,
         "warning": {
           "rule_id": "SR-001",
           "severity": "HIGH",
           "from_plan_item_id": "PI-001",
           "to_plan_item_id": "PI-002",
-          "penalty": 10.0,
+          "penalty": 35.0,
           "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
           "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
         }
@@ -743,16 +743,16 @@ Response:
       "sequence_risk": 55.0,
       "packaging_time": 46.34
     },
-    "total_weighted_cost": 478030.01,
-    "sequence_penalty": 17.0,
-    "objective_score": 478047.01,
+    "total_weighted_cost": 89942.18,
+    "sequence_penalty": 53.0,
+    "objective_score": 89995.18,
     "risk_warnings": [
       {
         "rule_id": "SR-001",
         "severity": "HIGH",
         "from_plan_item_id": "PI-001",
         "to_plan_item_id": "PI-002",
-        "penalty": 10.0,
+        "penalty": 35.0,
         "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
         "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
       }
@@ -795,29 +795,29 @@ Response:
       },
       "rule_id": "SR-001",
       "severity": "HIGH",
-      "sequence_penalty": 10.0,
+      "sequence_penalty": 35.0,
       "warning": {
         "rule_id": "SR-001",
         "severity": "HIGH",
         "from_plan_item_id": "PI-001",
         "to_plan_item_id": "PI-002",
-        "penalty": 10.0,
+        "penalty": 35.0,
         "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
         "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
       }
     }
   ],
-  "total_weighted_cost": 478030.01,
-  "sequence_penalty": 17.0,
-  "objective_score": 478047.01,
+  "total_weighted_cost": 89942.18,
+  "sequence_penalty": 53.0,
+  "objective_score": 89995.18,
   "comparison_state": {
     "basis": "objectiveScore",
-    "recommended": 404349.64,
-    "current": 478047.01,
-    "diff": 73697.37,
-    "diff_rate": 0.1823
+    "recommended": 76155.71,
+    "current": 89995.18,
+    "diff": 13839.47,
+    "diff_rate": 0.1817
   },
-  "comparison_summary": "현재 순서는 추천안보다 목적 점수가 73697.37 높습니다.",
+  "comparison_summary": "현재 순서는 추천안보다 목적 점수가 13839.47 높습니다.",
   "cost_delta_vs_recommended": {
     "downtime": 8.32,
     "labor_cost": 46750.0,
@@ -834,7 +834,7 @@ Response:
       "severity": "HIGH",
       "from_plan_item_id": "PI-001",
       "to_plan_item_id": "PI-002",
-      "penalty": 10.0,
+      "penalty": 35.0,
       "message": "검정 이후 흰색 생산은 잔류 안료로 인한 품질 리스크가 가장 높습니다.",
       "recommendation": "흰색 계열을 먼저 생산하거나 중간 세척 단계를 반드시 추가하세요."
     }
@@ -865,14 +865,14 @@ Response:
 {
   "dashboard_summary": {
     "decision_count": 3,
-    "average_objective_score": 452123.45,
+    "average_objective_score": 82145.36,
     "high_risk_transition_count": 4
   },
   "kpi_trend": [
     {
       "decision_id": "DEC-ABC123DEF456",
       "confirmed_at": "2026-05-17T10:30:00.000000+00:00",
-      "objective_score": 478047.01,
+      "objective_score": 89995.18,
       "wash_cost": 168011.33,
       "sequence_risk": 55.0
     }
@@ -887,7 +887,7 @@ Response:
     {
       "decision_id": "DEC-ABC123DEF456",
       "plan_id": "demo-plan-001",
-      "objective_score": 478047.01,
+      "objective_score": 89995.18,
       "risk_warning_count": 2,
       "reviewed": false,
       "confirmed_at": "2026-05-17T10:30:00.000000+00:00"
