@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -17,9 +17,13 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import type { PlanItem, RiskWarning, TransitionCost, WarningSeverity } from '../api/types';
+import { formatScore } from '../utils/costFormat';
 import SkuCard from './SkuCard';
+import TransitionSlot from './TransitionSlot';
 
-// ── SortableCard ────────────────────────────────────────────────
+function transitionKey(fromId: string, toId: string): string {
+  return `${fromId}->${toId}`;
+}
 
 interface WarningInfo {
   severity: WarningSeverity;
@@ -34,27 +38,35 @@ interface SortableCardProps {
   warning?: WarningInfo | null;
 }
 
-/** D&D 핸들 + SkuCard 래퍼 */
 function SortableCard({ id, item, index, warning }: SortableCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
 
   return (
     <div
       ref={setNodeRef}
       className={`sortable-card-wrapper${isDragging ? ' sortable-card-wrapper--dragging' : ''}`}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
+      style={style}
       {...attributes}
     >
-      <span className="drag-handle" {...listeners} aria-label="드래그 핸들">
-        <GripVertical size={14} />
-      </span>
-      <SkuCard item={item} index={index} warning={warning} />
+      <SkuCard
+        item={item}
+        index={index}
+        warning={warning}
+        trailing={
+          <span className="drag-handle" {...listeners} aria-label="드래그 핸들">
+            <GripVertical size={14} />
+          </span>
+        }
+      />
     </div>
   );
 }
-
-// ── DecisionWorkspace ───────────────────────────────────────────
 
 interface Props {
   planItems: PlanItem[];
@@ -70,17 +82,38 @@ interface Props {
   onDragCancel: () => void;
 }
 
-/**
- * 추천안(좌)·현재안(우) 2열 작업 공간.
- *
- * 현재안 열: @dnd-kit D&D. 드롭 완료 시 onDrop(newSequence) 콜백.
- * HIGH/MEDIUM 위험 경고가 있는 카드는 강조 표시 + 다음 전환 정보 태그.
- * TransitionSlot 없음 — 위험 정보는 카드에 직접 표시.
- */
+function WorkspaceChrome({ children }: { children: ReactNode }) {
+  return (
+    <section aria-label="생산 순서">
+      <div className="workspace-box">
+        <div className="section-hd">
+          <div>
+            <h2 className="section-lbl">생산 순서</h2>
+            <p className="section-sub">현재안을 드래그해 순서를 바꿉니다</p>
+          </div>
+          <span className="panel-hd-note">낮은 objectiveScore가 유리</span>
+        </div>
+        <div className="panel-hd panel-hd--sub">
+          <span>추천안 vs 현재안</span>
+          <span className="panel-hd-note">카드 key = plan_item_id</span>
+        </div>
+        <div className="ws-toolbar">
+          <span className="ws-toolbar-hint">
+            고위험 전환은 카드에서 강조하고, 상세 비용은 전환 분석에서 확인합니다.
+          </span>
+        </div>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/** 추천안과 현재안을 비교하고 현재안 카드 순서를 드래그로 편집한다. */
 export default function DecisionWorkspace({
   planItems,
   recommendedSequence,
   currentSequence,
+  transitionCosts,
   riskWarnings,
   recommendedScore,
   currentScore,
@@ -96,12 +129,14 @@ export default function DecisionWorkspace({
   );
 
   const itemMap = new Map(planItems.map(i => [i.planItemId, i]));
-
-  /** fromPlanItemId → risk warning 빠른 조회 */
   const warnMap = new Map(riskWarnings.map(w => [w.fromPlanItemId, w]));
+  const transitionMap = new Map(
+    transitionCosts.map(t => [transitionKey(t.fromPlanItemId, t.toPlanItemId), t]),
+  );
 
+  /** 드래그 overlay 대상과 페이지 드래그 상태를 함께 시작한다. */
   function handleDragStart(event: DragStartEvent) {
-    setActiveId(event.active.id as string);
+    setActiveId(String(event.active.id));
     onDragStart();
   }
 
@@ -109,8 +144,8 @@ export default function DecisionWorkspace({
     const { active, over } = event;
     setActiveId(null);
     if (over && active.id !== over.id) {
-      const oldIndex = currentSequence.indexOf(active.id as string);
-      const newIndex = currentSequence.indexOf(over.id as string);
+      const oldIndex = currentSequence.indexOf(String(active.id));
+      const newIndex = currentSequence.indexOf(String(over.id));
       onDrop(arrayMove(currentSequence, oldIndex, newIndex));
     } else {
       onDragCancel();
@@ -122,41 +157,39 @@ export default function DecisionWorkspace({
     onDragCancel();
   }
 
+  const activeIndex = activeId ? currentSequence.indexOf(activeId) : -1;
+  const activeWarning =
+    activeId && activeIndex >= 0
+      ? (() => {
+          const rw = warnMap.get(activeId);
+          const toItem = rw ? itemMap.get(rw.toPlanItemId) : undefined;
+          return rw && toItem
+            ? { severity: rw.severity, toSkuName: toItem.skuName, ruleId: rw.ruleId }
+            : null;
+        })()
+      : null;
+
   const fmtScore = (v: number | null) =>
-    v !== null ? `${Math.round(v).toLocaleString()} pt` : null;
+    v !== null ? formatScore(v) : null;
 
   if (planItems.length === 0) {
     return (
-      <div className="workspace-box">
-        <div className="panel-hd">추천안 vs 현재안</div>
+      <WorkspaceChrome>
         <div className="seq-cols-2">
           <div className="seq-col"><div className="seq-col-head">AI 추천안</div></div>
-          <div className="seq-col"><div className="seq-col-head current">현재안</div></div>
+          <div className="seq-col"><div className="seq-col-head">현재안</div></div>
         </div>
-      </div>
+      </WorkspaceChrome>
     );
   }
 
   const activeItem = activeId ? itemMap.get(activeId) : null;
-  const recScore   = fmtScore(recommendedScore);
-  const curScore   = fmtScore(currentScore);
+  const recScore = fmtScore(recommendedScore);
+  const curScore = fmtScore(currentScore);
 
   return (
-    <div className="workspace-box">
-      <div className="panel-hd">
-        <span>추천안 vs 현재안</span>
-        <span className="panel-hd-note">낮은 점수가 유리</span>
-      </div>
-
-      <div className="ws-toolbar">
-        <span className="ws-toolbar-hint">
-          카드 key = <code>plan_item_id</code> · 고위험 전환은 카드 강조 ·
-          전환 분석·주의 패널에서 확인 · 초기화는 하단 ActionFooter
-        </span>
-      </div>
-
+    <WorkspaceChrome>
       <div className="seq-cols-2">
-        {/* 좌: 추천안 (정적) */}
         <div className="seq-col">
           <div className="seq-col-head">
             AI 추천안
@@ -171,9 +204,8 @@ export default function DecisionWorkspace({
           </div>
         </div>
 
-        {/* 우: 현재안 (D&D) */}
         <div className="seq-col">
-          <div className="seq-col-head current">
+          <div className="seq-col-head">
             현재안
             {isPredicting
               ? <span className="score">평가 중…</span>
@@ -192,30 +224,50 @@ export default function DecisionWorkspace({
                 {currentSequence.map((id, i) => {
                   const item = itemMap.get(id);
                   if (!item) return null;
+                  const nextId = currentSequence[i + 1];
                   const rw = warnMap.get(id);
                   const toItem = rw ? itemMap.get(rw.toPlanItemId) : undefined;
                   const warning: WarningInfo | null =
                     rw && toItem
                       ? { severity: rw.severity, toSkuName: toItem.skuName, ruleId: rw.ruleId }
                       : null;
+                  const transition = nextId
+                    ? transitionMap.get(transitionKey(id, nextId))
+                    : undefined;
+                  const nextItem = nextId ? itemMap.get(nextId) : undefined;
+
                   return (
-                    <SortableCard
-                      key={id}
-                      id={id}
-                      item={item}
-                      index={i + 1}
-                      warning={warning}
-                    />
+                    <Fragment key={id}>
+                      <SortableCard
+                        id={id}
+                        item={item}
+                        index={i + 1}
+                        warning={warning}
+                      />
+                      {transition && nextItem && (
+                        <TransitionSlot
+                          transition={transition}
+                          fromSkuName={item.skuName}
+                          toSkuName={nextItem.skuName}
+                        />
+                      )}
+                    </Fragment>
                   );
                 })}
               </SortableContext>
 
-              <DragOverlay>
-                {activeItem ? (
-                  <div className="drag-overlay-card">
+              <DragOverlay adjustScale={false} dropAnimation={null}>
+                {activeItem && activeIndex >= 0 ? (
+                  <div className="drag-overlay-card sortable-card-wrapper">
                     <SkuCard
                       item={activeItem}
-                      index={currentSequence.indexOf(activeId!) + 1}
+                      index={activeIndex + 1}
+                      warning={activeWarning}
+                      trailing={
+                        <span className="drag-handle" aria-hidden="true">
+                          <GripVertical size={14} />
+                        </span>
+                      }
                     />
                   </div>
                 ) : null}
@@ -224,6 +276,6 @@ export default function DecisionWorkspace({
           </div>
         </div>
       </div>
-    </div>
+    </WorkspaceChrome>
   );
 }

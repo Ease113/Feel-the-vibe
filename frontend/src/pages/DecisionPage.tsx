@@ -3,10 +3,10 @@ import EvaluationConditionsPanel from '../components/EvaluationConditionsPanel';
 import DecisionWorkspace from '../components/DecisionWorkspace';
 import KpiSummaryBar from '../components/KpiSummaryBar';
 import ComparisonPanel from '../components/ComparisonPanel';
-import WarningPanel from '../components/WarningPanel';
 import TransitionAnalysisTable from '../components/TransitionAnalysisTable';
 import CommitSection from '../components/CommitSection';
 import ExplainSection from '../components/ExplainSection';
+import WarningPanel from '../components/WarningPanel';
 
 function fmtDiffPct(current: number, recommended: number): string {
   const pct = ((current - recommended) / recommended) * 100;
@@ -49,6 +49,7 @@ export default function DecisionPage() {
     sequencePenalty,
     aggregatedCost,
     baselineAggregatedCost,
+    appliedWeights,
     comparisonState,
     comparisonSummary,
     comparisonDiffs,
@@ -71,7 +72,6 @@ export default function DecisionPage() {
   const currentScore = objectiveScore;
 
   const highRiskCount = riskWarnings.filter(w => w.severity === 'HIGH').length;
-  const canCommit = commitBlockReason === null;
 
   return (
     <div className="decision-page">
@@ -79,7 +79,12 @@ export default function DecisionPage() {
         <div>
           <div className="top-plan">demo-plan-001 · {operatingContext.lineId}</div>
           <h1 className="top-title">생산 순서 의사결정</h1>
-          {!isOptimizing && currentScore !== null && recommendedScore !== null && (
+          {commitBlockReason && (
+            <div className="top-status">
+              <span className="status-warn">{commitBlockReason}</span>
+            </div>
+          )}
+          {!commitBlockReason && !isOptimizing && currentScore !== null && recommendedScore !== null && (
             <div className="top-status">
               <span className={currentScore > recommendedScore ? 'status-warn' : 'status-ok'}>
                 {fmtDiffPct(currentScore, recommendedScore)}
@@ -91,9 +96,7 @@ export default function DecisionPage() {
                 </>
               )}
               <span className="status-sep">·</span>
-              <span className={canCommit ? 'status-ok' : 'status-warn'}>
-                {canCommit ? '확정 가능' : commitBlockReason}
-              </span>
+              <span className="status-ok">확정 가능</span>
             </div>
           )}
         </div>
@@ -137,6 +140,7 @@ export default function DecisionPage() {
             currentSequence={currentSequence}
             transitionCosts={transitionCosts}
             riskWarnings={riskWarnings}
+            appliedWeights={appliedWeights}
             selectedKey={selectedTransitionKey}
             onSelectKey={handleTransitionSelect}
             onReset={handleReset}
@@ -149,16 +153,15 @@ export default function DecisionPage() {
             totalWeightedCost={totalWeightedCost}
             sequencePenalty={sequencePenalty}
             aggregatedCost={aggregatedCost}
+            baselineAggregatedCost={baselineAggregatedCost}
             riskWarnings={riskWarnings}
             comparisonState={comparisonState}
             isPredicting={isPredicting}
           />
           <ComparisonPanel
             comparisonSummary={comparisonSummary}
+            comparisonState={comparisonState}
             comparisonDiffs={comparisonDiffs}
-            aggregatedCost={aggregatedCost}
-            baselineAggregatedCost={baselineAggregatedCost}
-            riskWarnings={riskWarnings}
             isPredicting={isPredicting}
           />
           <WarningPanel
@@ -173,7 +176,6 @@ export default function DecisionPage() {
             onExplain={handleExplain}
           />
           <CommitSection
-            riskWarnings={riskWarnings}
             decisionMemo={decisionMemo}
             saveStatus={saveStatus}
             commitBlockReason={commitBlockReason}

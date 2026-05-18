@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { PlanItem, WarningSeverity } from '../api/types';
 import { SEVERITY_UI } from '../api/types';
 
@@ -23,6 +24,8 @@ interface Props {
   subTag?: string;
   /** 이 카드 다음 전환의 위험 정보 (현재안 열에서 사용) */
   warning?: WarningInfo | null;
+  /** 카드 우측 끝 슬롯 (현재안 드래그 핸들 등) */
+  trailing?: ReactNode;
 }
 
 /**
@@ -32,7 +35,7 @@ interface Props {
  *   + 서브태그 "다음: {toSkuName} 전환 · {ruleId}".
  * 추천안 열에서는 warning 없이 category를 서브태그로 표시.
  */
-export default function SkuCard({ item, index, subTag, warning }: Props) {
+export default function SkuCard({ item, index, subTag, warning, trailing }: Props) {
   const isWarn = !!warning;
   const uiSev  = warning ? SEVERITY_UI[warning.severity] : null;
 
@@ -55,6 +58,7 @@ export default function SkuCard({ item, index, subTag, warning }: Props) {
         </div>
         <div className="sku-tag">{displaySub}</div>
       </div>
+      {trailing}
     </article>
   );
 }

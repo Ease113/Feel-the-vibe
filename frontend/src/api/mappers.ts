@@ -24,6 +24,7 @@ import type {
   // Raw (API wire)
   CostVectorRaw,
   AppliedWeightsRaw,
+  NormalizedPriorityProfileRaw,
   PriorityEntryRaw,
   PriorityProfileRaw,
   RiskWarningRaw,
@@ -115,19 +116,24 @@ export function mapPriorityEntry(raw: PriorityEntryRaw): PriorityEntry {
 }
 
 /**
- * PriorityProfile: 운영자 우선순위 5축 변환
- * base_weight_profile_id → baseWeightProfileId
- * 5개 우선순위 키: wash_cost/downtime/material_loss/packaging_time/labor_cost
+ * PriorityProfile: 운영자 우선순위 5축 변환.
+ * GET /plans는 nested shape, /predict 평가 결과는 서버 정규화 flat shape를 반환한다.
  */
-export function mapPriorityProfile(raw: PriorityProfileRaw): PriorityProfile {
+export function mapPriorityProfile(
+  raw: PriorityProfileRaw | NormalizedPriorityProfileRaw,
+): PriorityProfile {
+  const priorities = 'priorities' in raw ? raw.priorities : raw;
+  const baseWeightProfileId =
+    'base_weight_profile_id' in raw ? raw.base_weight_profile_id : 'factory_default_v1';
+
   return {
-    baseWeightProfileId: raw.base_weight_profile_id,
+    baseWeightProfileId,
     priorities: {
-      washCost:      mapPriorityEntry(raw.priorities.wash_cost),
-      downtime:      mapPriorityEntry(raw.priorities.downtime),
-      materialLoss:  mapPriorityEntry(raw.priorities.material_loss),
-      packagingTime: mapPriorityEntry(raw.priorities.packaging_time),
-      laborCost:     mapPriorityEntry(raw.priorities.labor_cost),
+      washCost:      mapPriorityEntry(priorities.wash_cost),
+      downtime:      mapPriorityEntry(priorities.downtime),
+      materialLoss:  mapPriorityEntry(priorities.material_loss),
+      packagingTime: mapPriorityEntry(priorities.packaging_time),
+      laborCost:     mapPriorityEntry(priorities.labor_cost),
     },
   };
 }
@@ -347,7 +353,9 @@ export function toExplainRequest(input: {
   planId: string;
   currentSequence: string[];
   comparisonState: ComparisonState;
+  comparisonSummary: string | null;
   riskWarnings: RiskWarning[];
+  priorityProfile: PriorityProfile;
 }): ExplainRequest {
   return {
     plan_id: input.planId,
@@ -359,6 +367,7 @@ export function toExplainRequest(input: {
       diff: input.comparisonState.diff,
       diff_rate: input.comparisonState.diffRate,
     },
+    comparison_summary: input.comparisonSummary ?? '',
     risk_warnings: input.riskWarnings.map((w) => ({
       rule_id: w.ruleId,
       severity: w.severity,
@@ -368,6 +377,7 @@ export function toExplainRequest(input: {
       message: w.message,
       recommendation: w.recommendation,
     })),
+    priority_profile: toPriorityProfileRaw(input.priorityProfile),
   };
 }
 

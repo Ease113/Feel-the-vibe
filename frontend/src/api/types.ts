@@ -109,6 +109,17 @@ export interface PriorityProfileRaw {
   };
 }
 
+/** SequenceEvaluation priority_profile — 서버 정규화 결과는 flat shape로 반환된다. */
+export interface NormalizedPriorityProfileRaw {
+  setup_time?: PriorityEntryRaw;
+  wash_cost: PriorityEntryRaw;
+  downtime: PriorityEntryRaw;
+  material_loss: PriorityEntryRaw;
+  packaging_time: PriorityEntryRaw;
+  labor_cost: PriorityEntryRaw;
+  sequence_risk?: PriorityEntryRaw;
+}
+
 /**
  * RiskWarning — 색상 전환 rule soft warning
  * 확정 차단 아님. riskWarnings 배열 원소
@@ -133,8 +144,8 @@ export interface TransitionCostRaw {
   from_sku_id: string;
   to_sku_id: string;
   cost_dimensions: CostVectorRaw;
-  rule_id: string;
-  severity: WarningSeverity;
+  rule_id: string | null;
+  severity: WarningSeverity | null;
   sequence_penalty: number;
   warning: RiskWarningRaw | null;
 }
@@ -151,7 +162,7 @@ export interface SequenceEvaluationRaw {
   sequence_penalty: number;
   objective_score: number;
   risk_warnings: RiskWarningRaw[];
-  priority_profile: PriorityProfileRaw;
+  priority_profile: PriorityProfileRaw | NormalizedPriorityProfileRaw;
   applied_weights: AppliedWeightsRaw;
   model_version: string;
   rule_version: string;
@@ -285,7 +296,9 @@ export interface ExplainRequest {
   plan_id: string;
   current_sequence: string[];
   comparison_state: ComparisonStateRaw;
+  comparison_summary: string;
   risk_warnings: RiskWarningRaw[];
+  priority_profile: PriorityProfileRaw;
 }
 
 /** POST /explain Response */
@@ -383,8 +396,8 @@ export interface TransitionCost {
   fromSkuId: string;
   toSkuId: string;
   costDimensions: CostVector;
-  ruleId: string;
-  severity: WarningSeverity;
+  ruleId: string | null;
+  severity: WarningSeverity | null;
   sequencePenalty: number;
   warning: RiskWarning | null;
 }
@@ -642,7 +655,9 @@ export type SeverityToUI = (severity: WarningSeverity) => WarningSeverityUI;
 export type MapPlanItem      = (raw: PlanItemRaw)           => PlanItem;
 export type MapCostVector    = (raw: CostVectorRaw)         => CostVector;
 export type MapAppliedWeights= (raw: AppliedWeightsRaw)     => AppliedWeights;
-export type MapPriorityProfile=(raw: PriorityProfileRaw)    => PriorityProfile;
+export type MapPriorityProfile=(
+  raw: PriorityProfileRaw | NormalizedPriorityProfileRaw,
+) => PriorityProfile;
 export type MapRiskWarning   = (raw: RiskWarningRaw)        => RiskWarning;
 export type MapTransitionCost= (raw: TransitionCostRaw)     => TransitionCost;
 export type MapSequenceEval  = (raw: SequenceEvaluationRaw) => SequenceEvaluation;
@@ -693,7 +708,7 @@ export const INITIAL_DECISION_PAGE_STATE: DecisionPageState = {
   commitBlockReason:          null,
   saveStatus:                 'idle',
   selectedTransitionKey:      null,
-  isEvaluationPanelExpanded:  false,
+  isEvaluationPanelExpanded:  true,
   isExplanationStale:         false,
   isOptimizing:               false,
   isPredicting:               false,
