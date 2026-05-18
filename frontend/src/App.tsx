@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { Activity, BarChart3 } from 'lucide-react';
+import {
+  AlertTriangle,
+  BarChart2,
+  Clock,
+  LayoutDashboard,
+  List,
+  Settings,
+} from 'lucide-react';
 import DashboardPage from './pages/DashboardPage';
 import DecisionPage from './pages/DecisionPage';
 
@@ -8,39 +15,69 @@ type Page = 'decision' | 'dashboard';
 /**
  * SmartFactoryV2 루트 컴포넌트.
  *
- * 상단 내비게이션 탭으로 Decision 페이지와 Dashboard 페이지를 전환한다.
- * 페이지 상태는 로컬 useState로만 관리해 라우터 의존성을 배제한다.
+ * 좌측 Nav + 우측 page 구조. Nav 항목으로 Decision/Dashboard를 전환한다.
  */
 export default function App() {
   const [page, setPage] = useState<Page>('decision');
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div>
-          <h1>SmartFactoryV2</h1>
-          <p>도료 생산순서 의사결정 MVP</p>
+    <div className="wf">
+      <nav className="nav" aria-label="주 메뉴">
+        <div className="nav-logo">
+          <div className="nav-logo-mark"><span>SF</span></div>
+          <div>
+            <div className="nav-logo-title">Smart Factory</div>
+            <div className="nav-logo-sub">도료 생산순서</div>
+          </div>
         </div>
-        <nav className="tabs" aria-label="primary navigation">
+
+        <div className="nav-group">
+          <div className="nav-lbl">계획 수립</div>
           <button
-            className={page === 'decision' ? 'active' : ''}
+            type="button"
+            className={`nav-item${page === 'decision' ? ' active' : ''}`}
             onClick={() => setPage('decision')}
-            type="button"
           >
-            <Activity size={16} />
-            Decision
+            <LayoutDashboard size={16} />
+            워크벤치
           </button>
+          <div className="nav-item nav-item--disabled">
+            <List size={16} />
+            시퀀스 계획
+          </div>
+        </div>
+
+        <div className="nav-group">
+          <div className="nav-lbl">운영 관리</div>
           <button
-            className={page === 'dashboard' ? 'active' : ''}
-            onClick={() => setPage('dashboard')}
             type="button"
+            className={`nav-item${page === 'dashboard' ? ' active' : ''}`}
+            onClick={() => setPage('dashboard')}
           >
-            <BarChart3 size={16} />
-            Dashboard
+            <BarChart2 size={16} />
+            KPI 검토
           </button>
-        </nav>
-      </header>
-      {page === 'decision' ? <DecisionPage /> : <DashboardPage />}
-    </main>
+          <div className="nav-item nav-item--disabled">
+            <AlertTriangle size={16} />
+            위험 패턴
+          </div>
+          <div className="nav-item nav-item--disabled">
+            <Clock size={16} />
+            의사결정 로그
+          </div>
+        </div>
+
+        <div className="nav-group nav-group--bottom">
+          <div className="nav-item nav-item--disabled">
+            <Settings size={16} />
+            설정
+          </div>
+        </div>
+      </nav>
+
+      <main className="page">
+        {page === 'decision' ? <DecisionPage /> : <DashboardPage />}
+      </main>
+    </div>
   );
 }
