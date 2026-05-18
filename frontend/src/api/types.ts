@@ -4,6 +4,7 @@
  * 기준 문서
  *   - api_contract.md          (API wire format, snake_case)
  *   - DB_state_v1_3.md         (화면 State, DB 스키마)
+ *   - docs/design/priority-profile-contract.md  (priority_profile nested 계약)
  *   - frontend_mvp_decision_structure_v3_2.md  (§4–§15)
  *
  * 네이밍 규칙
@@ -87,38 +88,51 @@ export interface AppliedWeightsRaw {
   labor_cost: number;
 }
 
-/** PriorityEntry — 우선순위 항목 하나 */
+/** PriorityEntry — 우선순위 항목 하나 (API wire) */
 export interface PriorityEntryRaw {
   label: PriorityLabel;
   multiplier: PriorityMultiplier;
 }
 
 /**
- * PriorityProfile — 운영자 우선순위 입력
- * UI 선택 5개: wash_cost / downtime / material_loss / packaging_time / labor_cost
- * setup_time 은 UI 제외, 서버 기본 가중치에만 포함
+ * 운영자 UI·API 요청이 조절하는 5개 비용 차원 (snake_case wire).
+ * @see docs/design/priority-profile-contract.md § Frontend Hand-off
+ */
+export type OperatorPriorityDimension =
+  | 'wash_cost'
+  | 'downtime'
+  | 'material_loss'
+  | 'packaging_time'
+  | 'labor_cost';
+
+/** OPERATOR_PRIORITY_DIMENSIONS — wire 축 순서 (mapper·요청 body 공통) */
+export const OPERATOR_PRIORITY_DIMENSIONS: readonly OperatorPriorityDimension[] = [
+  'wash_cost',
+  'downtime',
+  'material_loss',
+  'packaging_time',
+  'labor_cost',
+] as const;
+
+/**
+ * PriorityProfileRaw — nested 정본 (api_contract §29, DB_state §6.1)
+ * setup_time · sequence_risk 는 priorities 에 포함하지 않음
  */
 export interface PriorityProfileRaw {
   base_weight_profile_id: string;
-  priorities: {
-    wash_cost: PriorityEntryRaw;
-    downtime: PriorityEntryRaw;
-    material_loss: PriorityEntryRaw;
-    packaging_time: PriorityEntryRaw;
-    labor_cost: PriorityEntryRaw;
-  };
+  priorities: Record<OperatorPriorityDimension, PriorityEntryRaw>;
 }
 
-/** SequenceEvaluation priority_profile — 서버 정규화 결과는 flat shape로 반환된다. */
-export interface NormalizedPriorityProfileRaw {
-  setup_time?: PriorityEntryRaw;
-  wash_cost: PriorityEntryRaw;
-  downtime: PriorityEntryRaw;
-  material_loss: PriorityEntryRaw;
-  packaging_time: PriorityEntryRaw;
-  labor_cost: PriorityEntryRaw;
-  sequence_risk?: PriorityEntryRaw;
-}
+/**
+ * @deprecated 구버전 flat 응답 호환. 신규 API는 nested PriorityProfileRaw.
+ * setup_time · sequence_risk 키는 무시한다.
+ */
+export type LegacyFlatPriorityProfileRaw = Partial<
+  Record<OperatorPriorityDimension | 'setup_time' | 'sequence_risk', PriorityEntryRaw>
+>;
+
+/** @deprecated LegacyFlatPriorityProfileRaw 사용 권장 */
+export type NormalizedPriorityProfileRaw = LegacyFlatPriorityProfileRaw;
 
 /**
  * RiskWarning — 색상 전환 rule soft warning
@@ -162,7 +176,7 @@ export interface SequenceEvaluationRaw {
   sequence_penalty: number;
   objective_score: number;
   risk_warnings: RiskWarningRaw[];
-  priority_profile: PriorityProfileRaw | NormalizedPriorityProfileRaw;
+  priority_profile: PriorityProfileRaw;
   applied_weights: AppliedWeightsRaw;
   model_version: string;
   rule_version: string;
@@ -222,13 +236,16 @@ export interface OperatingContextRaw {
   crew_size: number;
 }
 
-/** GET /plans/{plan_id} Response */
+/** GET /plans/{plan_id} Response (hand-off 문서의 PlanResponse) */
 export interface GetPlanResponse {
   plan_id: string;
   plan_items: PlanItemRaw[];
   operating_context: OperatingContextRaw;
   default_priority_profile: PriorityProfileRaw;
 }
+
+/** @alias GetPlanResponse */
+export type PlanResponse = GetPlanResponse;
 
 /** GET /plans/{plan_id} — mapper 적용 후 도메인 응답 */
 export interface GetPlanData {
@@ -333,25 +350,39 @@ export interface OperatingContext {
   crewSize: number; // 운영자 선택
 }
 
-/** PriorityEntry — camelCase */
+/** PriorityEntry — camelCase (도메인) */
 export interface PriorityEntry {
   label: PriorityLabel;
   multiplier: PriorityMultiplier;
 }
 
+/** 운영자 UI 5축 (camelCase 도메인) */
+export type OperatorPriorityDimensionUI =
+  | 'washCost'
+  | 'downtime'
+  | 'materialLoss'
+  | 'packagingTime'
+  | 'laborCost';
+
+/** wire 축 → UI 축 */
+export const OPERATOR_PRIORITY_DIMENSION_TO_UI: Record<
+  OperatorPriorityDimension,
+  OperatorPriorityDimensionUI
+> = {
+  wash_cost:      'washCost',
+  downtime:       'downtime',
+  material_loss:  'materialLoss',
+  packaging_time: 'packagingTime',
+  labor_cost:     'laborCost',
+};
+
 /**
- * PriorityProfile — camelCase
- * UI 선택 5개 축: washCost / downtime / materialLoss / packagingTime / laborCost
+ * PriorityProfile — camelCase nested 정본
+ * UI 선택 5개 축만 포함. setup_time 은 appliedWeights 쪽에서 서버가 처리
  */
 export interface PriorityProfile {
   baseWeightProfileId: string;
-  priorities: {
-    washCost: PriorityEntry;
-    downtime: PriorityEntry;
-    materialLoss: PriorityEntry;
-    packagingTime: PriorityEntry;
-    laborCost: PriorityEntry;
-  };
+  priorities: Record<OperatorPriorityDimensionUI, PriorityEntry>;
 }
 
 /**
@@ -656,7 +687,7 @@ export type MapPlanItem      = (raw: PlanItemRaw)           => PlanItem;
 export type MapCostVector    = (raw: CostVectorRaw)         => CostVector;
 export type MapAppliedWeights= (raw: AppliedWeightsRaw)     => AppliedWeights;
 export type MapPriorityProfile=(
-  raw: PriorityProfileRaw | NormalizedPriorityProfileRaw,
+  raw: PriorityProfileRaw | LegacyFlatPriorityProfileRaw,
 ) => PriorityProfile;
 export type MapRiskWarning   = (raw: RiskWarningRaw)        => RiskWarning;
 export type MapTransitionCost= (raw: TransitionCostRaw)     => TransitionCost;
@@ -674,13 +705,12 @@ export const DEFAULT_PRIORITY_ENTRY: PriorityEntry = {
 
 export const DEFAULT_PRIORITY_PROFILE: PriorityProfile = {
   baseWeightProfileId: 'factory_default_v1',
-  priorities: {
-    washCost:      { label: 'NORMAL', multiplier: 1.00 },
-    downtime:      { label: 'NORMAL', multiplier: 1.00 },
-    materialLoss:  { label: 'NORMAL', multiplier: 1.00 },
-    packagingTime: { label: 'NORMAL', multiplier: 1.00 },
-    laborCost:     { label: 'NORMAL', multiplier: 1.00 },
-  },
+  priorities: Object.fromEntries(
+    OPERATOR_PRIORITY_DIMENSIONS.map(dim => [
+      OPERATOR_PRIORITY_DIMENSION_TO_UI[dim],
+      { ...DEFAULT_PRIORITY_ENTRY },
+    ]),
+  ) as Record<OperatorPriorityDimensionUI, PriorityEntry>,
 };
 
 export const INITIAL_DECISION_PAGE_STATE: DecisionPageState = {
@@ -746,7 +776,7 @@ export const SEVERITY_UI: Record<WarningSeverity, WarningSeverityUI> = {
 };
 
 /** PriorityProfile 우선순위 키 → UI 라벨 (한국어) */
-export const PRIORITY_AXIS_KO: Record<keyof PriorityProfile['priorities'], string> = {
+export const PRIORITY_AXIS_KO: Record<OperatorPriorityDimensionUI, string> = {
   washCost:      '세척 비용',
   downtime:      '다운타임',
   materialLoss:  '원자재 손실',

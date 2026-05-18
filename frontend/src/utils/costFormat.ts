@@ -8,15 +8,21 @@ export function formatScore(value: number): string {
   });
 }
 
-/** @deprecated formatScore 사용 권장 */
+/**
+ * 무단위 스칼라 포맷 (formatScore 별칭).
+ * @deprecated formatScore 사용 권장
+ * @param value - 포맷할 숫자
+ */
 export function formatPt(value: number): string {
   return formatScore(value);
 }
 
+/** 원화 정수 표기 */
 export function formatWon(value: number): string {
   return Math.round(value).toLocaleString(undefined);
 }
 
+/** 분 단위 소수 1자리 */
 export function formatMinutes(value: number): string {
   return value.toLocaleString(undefined, {
     minimumFractionDigits: 1,
@@ -24,6 +30,7 @@ export function formatMinutes(value: number): string {
   });
 }
 
+/** 리터 단위 소수 1자리 */
 export function formatLiters(value: number): string {
   return value.toLocaleString(undefined, {
     minimumFractionDigits: 1,

@@ -20,13 +20,19 @@
  *   §7  apply 함수   — applyOptimizeResponse, applyPredictResponse 등
  */
 
+import {
+  DEFAULT_PRIORITY_ENTRY,
+  OPERATOR_PRIORITY_DIMENSIONS,
+  OPERATOR_PRIORITY_DIMENSION_TO_UI,
+} from './types';
 import type {
   // Raw (API wire)
   CostVectorRaw,
   AppliedWeightsRaw,
-  NormalizedPriorityProfileRaw,
+  LegacyFlatPriorityProfileRaw,
   PriorityEntryRaw,
   PriorityProfileRaw,
+  OperatorPriorityDimensionUI,
   RiskWarningRaw,
   TransitionCostRaw,
   SequenceEvaluationRaw,
@@ -116,26 +122,30 @@ export function mapPriorityEntry(raw: PriorityEntryRaw): PriorityEntry {
 }
 
 /**
- * PriorityProfile: 운영자 우선순위 5축 변환.
- * GET /plans는 nested shape, /predict 평가 결과는 서버 정규화 flat shape를 반환한다.
+ * PriorityProfile: nested 정본 → camelCase 도메인.
+ * legacy flat 응답은 누락 축을 NORMAL로 채운다.
  */
 export function mapPriorityProfile(
-  raw: PriorityProfileRaw | NormalizedPriorityProfileRaw,
+  raw: PriorityProfileRaw | LegacyFlatPriorityProfileRaw,
 ): PriorityProfile {
-  const priorities = 'priorities' in raw ? raw.priorities : raw;
+  const isNested = 'priorities' in raw && raw.priorities != null;
+  const prioritiesIn: LegacyFlatPriorityProfileRaw | PriorityProfileRaw['priorities'] =
+    isNested ? (raw as PriorityProfileRaw).priorities : (raw as LegacyFlatPriorityProfileRaw);
   const baseWeightProfileId =
-    'base_weight_profile_id' in raw ? raw.base_weight_profile_id : 'factory_default_v1';
+    'base_weight_profile_id' in raw && raw.base_weight_profile_id
+      ? raw.base_weight_profile_id
+      : 'factory_default_v1';
 
-  return {
-    baseWeightProfileId,
-    priorities: {
-      washCost:      mapPriorityEntry(priorities.wash_cost),
-      downtime:      mapPriorityEntry(priorities.downtime),
-      materialLoss:  mapPriorityEntry(priorities.material_loss),
-      packagingTime: mapPriorityEntry(priorities.packaging_time),
-      laborCost:     mapPriorityEntry(priorities.labor_cost),
-    },
-  };
+  const priorities = {} as Record<OperatorPriorityDimensionUI, PriorityEntry>;
+  for (const dim of OPERATOR_PRIORITY_DIMENSIONS) {
+    const uiKey = OPERATOR_PRIORITY_DIMENSION_TO_UI[dim];
+    const entry = prioritiesIn[dim];
+    priorities[uiKey] = entry
+      ? mapPriorityEntry(entry)
+      : { ...DEFAULT_PRIORITY_ENTRY };
+  }
+
+  return { baseWeightProfileId, priorities };
 }
 
 // ============================================================
@@ -290,23 +300,25 @@ export function mergeGetPlanData(
 // §5b domain → API request (camelCase → snake_case)
 // ============================================================
 
+/** PriorityEntry → API wire */
 export function toPriorityEntryRaw(entry: PriorityEntry): PriorityEntryRaw {
   return { label: entry.label, multiplier: entry.multiplier };
 }
 
+/** PriorityProfile nested 정본 → API wire (5축) */
 export function toPriorityProfileRaw(profile: PriorityProfile): PriorityProfileRaw {
+  const priorities = {} as PriorityProfileRaw['priorities'];
+  for (const dim of OPERATOR_PRIORITY_DIMENSIONS) {
+    const uiKey = OPERATOR_PRIORITY_DIMENSION_TO_UI[dim];
+    priorities[dim] = toPriorityEntryRaw(profile.priorities[uiKey]);
+  }
   return {
     base_weight_profile_id: profile.baseWeightProfileId,
-    priorities: {
-      wash_cost: toPriorityEntryRaw(profile.priorities.washCost),
-      downtime: toPriorityEntryRaw(profile.priorities.downtime),
-      material_loss: toPriorityEntryRaw(profile.priorities.materialLoss),
-      packaging_time: toPriorityEntryRaw(profile.priorities.packagingTime),
-      labor_cost: toPriorityEntryRaw(profile.priorities.laborCost),
-    },
+    priorities,
   };
 }
 
+/** POST /optimize 요청 body */
 export function toOptimizeRequest(input: {
   planId: string;
   planItemIds: string[];
@@ -319,6 +331,7 @@ export function toOptimizeRequest(input: {
   };
 }
 
+/** POST /predict 요청 body */
 export function toPredictRequest(input: {
   planId: string;
   recommendedSequence: string[];
@@ -333,6 +346,7 @@ export function toPredictRequest(input: {
   };
 }
 
+/** POST /decisions 요청 body */
 export function toDecisionsRequest(input: {
   planId: string;
   recommendedSequence: string[];
@@ -349,6 +363,7 @@ export function toDecisionsRequest(input: {
   };
 }
 
+/** POST /explain 요청 body */
 export function toExplainRequest(input: {
   planId: string;
   currentSequence: string[];
