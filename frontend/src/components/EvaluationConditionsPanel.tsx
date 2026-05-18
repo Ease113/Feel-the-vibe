@@ -9,6 +9,21 @@ import {
 const PRIORITY_LABELS: PriorityLabel[] = ['VERY_LOW', 'LOW', 'NORMAL', 'HIGH', 'VERY_HIGH'];
 const PRIORITY_AXES = Object.keys(PRIORITY_AXIS_KO) as Array<keyof PriorityProfile['priorities']>;
 
+/** 요약 칩용 짧은 축 이름 */
+const PRIORITY_AXIS_CHIP_KO: Record<keyof PriorityProfile['priorities'], string> = {
+  washCost: '세척',
+  downtime: '다운타임',
+  materialLoss: '원자재',
+  packagingTime: '패키징',
+  laborCost: '작업자',
+};
+
+interface PriorityChip {
+  key: string;
+  text: string;
+  highlighted: boolean;
+}
+
 interface Props {
   operatingContext: OperatingContext;
   priorityProfile: PriorityProfile;
@@ -19,19 +34,26 @@ interface Props {
   onOperatingContextChange?: (ctx: OperatingContext) => void;
 }
 
-/** NORMAL(1.0) 초과 축 전체를 요약 칩 문자열 배열로 반환 */
-function priorityChips(profile: PriorityProfile): string[] {
+/** NORMAL이 아닌 축을 요약 칩으로 반환 (최대 3개) */
+function priorityChips(profile: PriorityProfile): PriorityChip[] {
   return PRIORITY_AXES
-    .filter(key => profile.priorities[key].multiplier > 1.0)
-    .map(key => `${PRIORITY_AXIS_KO[key]} ${PRIORITY_LABEL_KO[profile.priorities[key].label]}`);
+    .filter(key => profile.priorities[key].label !== 'NORMAL')
+    .slice(0, 3)
+    .map(key => {
+      const { label } = profile.priorities[key];
+      return {
+        key,
+        text: `${PRIORITY_AXIS_CHIP_KO[key]} ${PRIORITY_LABEL_KO[label]} (${label})`,
+        highlighted: profile.priorities[key].multiplier > 1.0,
+      };
+    });
 }
 
 /**
- * 평가 조건 패널 — 운영 컨텍스트 + 5축 우선순위.
+ * 평가 조건 패널 — 운영 컨텍스트 + 5축 Likert 우선순위.
  *
- * isExpanded=false: 헤더 요약 칩(교대·인원·주요 우선순위)만 표시.
- * isExpanded=true: 운영 컨텍스트(교대/인원 select) + pri-block 우선순위 패널.
- * 우선순위 변경 → onPriorityChange → 상위에서 POST /predict.
+ * 헤더: 교대·인원·주요 우선순위 요약 칩 (접힘 상태에서도 표시).
+ * 본문: 2열 — 운영 컨텍스트 | Likert 우선순위.
  */
 export default function EvaluationConditionsPanel({
   operatingContext,
@@ -42,11 +64,10 @@ export default function EvaluationConditionsPanel({
   onPriorityChange,
   onOperatingContextChange,
 }: Props) {
-  // 교대·인원은 로컬 UI 상태로 관리 (API는 현재 operatingContext를 사용하지 않음)
   const [shift, setShift] = useState<OperatingContext['shift']>(operatingContext.shift);
   const [crewSize, setCrewSize] = useState(operatingContext.crewSize);
 
-  function handlePriorityClick(axis: keyof PriorityProfile['priorities'], label: PriorityLabel) {
+  function handlePrioritySelect(axis: keyof PriorityProfile['priorities'], label: PriorityLabel) {
     onPriorityChange({
       ...priorityProfile,
       priorities: {
@@ -68,83 +89,133 @@ export default function EvaluationConditionsPanel({
     onOperatingContextChange?.({ ...operatingContext, crewSize: next });
   }
 
+  function handleSummaryClick(e: React.MouseEvent<HTMLElement>) {
+    e.preventDefault();
+    onToggle();
+  }
+
   const chips = priorityChips(priorityProfile);
   const shiftLabel = shift === 'day' ? '주간' : '야간';
 
   return (
     <section className="eval-panel" aria-label="평가 조건">
-      <button className="eval-summary" type="button" onClick={onToggle}>
-        <div className="eval-summary-main">
-          <span className="eval-summary-title">평가 조건</span>
-          {!isExpanded && (
+      <details className="eval-details" open={isExpanded}>
+        <summary className="eval-summary" onClick={handleSummaryClick}>
+          <div className="eval-summary-main">
+            <span className="eval-summary-title">평가 조건</span>
             <div className="eval-chips">
               <span className="eval-chip">{shiftLabel} · {crewSize}명</span>
               {chips.map(c => (
-                <span key={c} className="eval-chip eval-chip--hi">{c}</span>
+                <span
+                  key={c.key}
+                  className={`eval-chip${c.highlighted ? ' eval-chip--hi' : ''}`}
+                >
+                  {c.text}
+                </span>
               ))}
             </div>
-          )}
-        </div>
-        <span className={`eval-chevron${isExpanded ? ' eval-chevron--open' : ''}`}>▾</span>
-      </button>
-
-      {isExpanded && (
-        <div className="eval-body">
-          {/* 운영 컨텍스트 */}
-          <div>
-            <div className="eval-sec-lbl">운영 컨텍스트</div>
-            <div className="eval-ctx-row">
-              <span className="eval-ctx-plan">{operatingContext.lineId}</span>
-              <span className="ctx-field">
-                <label htmlFor="eval-shift">교대</label>
-                <select id="eval-shift" value={shift} onChange={handleShiftChange}>
-                  <option value="day">주간</option>
-                  <option value="night">야간</option>
-                </select>
-              </span>
-              <span className="ctx-field">
-                <label htmlFor="eval-crew">투입 인원</label>
-                <select id="eval-crew" value={crewSize} onChange={handleCrewChange}>
-                  {[2, 3, 4, 5].map(n => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
-              </span>
-            </div>
           </div>
+          <span className="eval-chevron" aria-hidden="true">▾</span>
+        </summary>
 
-          <div className="eval-divider" />
+        <div className="eval-body">
+          <div className="eval-cols-2">
+            <div className="eval-col">
+              <div className="eval-sec-lbl">
+                운영 컨텍스트
+                <span className="eval-sec-hint">
+                  — lineId 표시, shift·crewSize 선택 / workerSkill·equipmentCondition 등 hidden 피처는 서버 처리
+                </span>
+              </div>
+              <div className="eval-ctx-row">
+                <span className="eval-ctx-plan">{operatingContext.lineId}</span>
+                <span className="ctx-field">
+                  <label htmlFor="eval-shift">교대</label>
+                  <select id="eval-shift" value={shift} onChange={handleShiftChange}>
+                    <option value="day">주간 (day)</option>
+                    <option value="night">야간 (night)</option>
+                  </select>
+                </span>
+                <span className="ctx-field">
+                  <label htmlFor="eval-crew">투입 인원</label>
+                  <select id="eval-crew" value={crewSize} onChange={handleCrewChange}>
+                    {[2, 3, 4, 5].map(n => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </span>
+              </div>
+            </div>
 
-          {/* 우선순위 패널 */}
-          <div>
-            <div className="eval-sec-lbl">운영 우선순위</div>
-            {PRIORITY_AXES.map(axis => {
-              const current = priorityProfile.priorities[axis].label;
-              return (
-                <div key={axis} className="pri-block">
-                  <div className="pri-lbl-row">
-                    <span className="pri-lbl">{PRIORITY_AXIS_KO[axis]}</span>
-                    <span className="pri-val">{PRIORITY_LABEL_KO[current]}</span>
-                  </div>
-                  <div className="pri-segs">
+            <div className="eval-col">
+              <div className="eval-sec-lbl">
+                운영 우선순위
+                <span className="eval-sec-hint">
+                  — VERY_LOW(×0.70) / LOW(×0.85) / NORMAL(×1.00) / HIGH(×1.15) / VERY_HIGH(×1.30) · appliedWeights는 서버 재정규화
+                </span>
+              </div>
+
+              <div className="pri-likert-wrap">
+                <div className="likert-grid-hd" aria-hidden="true">
+                  <div className="likert-grid-hd-spacer" />
+                  <div className="likert-labels">
                     {PRIORITY_LABELS.map(lbl => (
-                      <button
-                        key={lbl}
-                        type="button"
-                        className={`seg${current === lbl ? ' on' : ''}`}
-                        disabled={isPredicting}
-                        onClick={() => handlePriorityClick(axis, lbl)}
-                      >
-                        {PRIORITY_LABEL_KO[lbl]}
-                      </button>
+                      <span key={lbl}>{PRIORITY_LABEL_KO[lbl]}</span>
                     ))}
                   </div>
                 </div>
-              );
-            })}
+
+                {PRIORITY_AXES.map(axis => {
+                  const current = priorityProfile.priorities[axis];
+                  return (
+                    <div key={axis} className="pri-block likert-row">
+                      <div className="pri-lbl-col">
+                        <div className="pri-lbl">
+                          {PRIORITY_AXIS_KO[axis]}
+                          <span className="field-key">{axis}</span>
+                        </div>
+                        <div className="pri-val">
+                          {PRIORITY_LABEL_KO[current.label]}
+                          <span className="pri-enum">
+                            {current.label} ×{current.multiplier.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                      <div
+                        className="likert-track"
+                        role="radiogroup"
+                        aria-label={`${PRIORITY_AXIS_KO[axis]} 우선순위`}
+                      >
+                        {PRIORITY_LABELS.map(lbl => (
+                          <label
+                            key={lbl}
+                            className="likert-point"
+                            title={`${lbl} ×${PRIORITY_MULTIPLIER[lbl].toFixed(2)}`}
+                          >
+                            <input
+                              type="radio"
+                              name={`pri-${axis}`}
+                              value={lbl}
+                              checked={current.label === lbl}
+                              disabled={isPredicting}
+                              onChange={() => handlePrioritySelect(axis, lbl)}
+                            />
+                            <span className="likert-node" />
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p className="eval-setup-note">
+                setupTime은 선택 제외 · 내부 appliedWeights 계산에 포함됨
+              </p>
+            </div>
           </div>
         </div>
-      )}
+      </details>
     </section>
   );
 }

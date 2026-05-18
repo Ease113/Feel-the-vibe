@@ -12,7 +12,6 @@ import {
   applyExplainResponse,
   applyOptimizeResponse,
   applyPredictResponse,
-  applySequenceReset,
   mergeGetPlanData,
 } from '../api/mappers';
 import type { DecisionPageState, PriorityProfile } from '../api/types';
@@ -52,7 +51,13 @@ export function useDecisionPage() {
         });
         if (cancelled) return;
 
-        setState(prev => applyOptimizeResponse(prev, optimizeResult));
+        setState(prev => {
+          try {
+            return applyOptimizeResponse(prev, optimizeResult);
+          } catch {
+            return { ...prev, isOptimizing: false, commitBlockReason: '데이터 처리 오류' };
+          }
+        });
       } catch (err) {
         if (!cancelled) {
           setState(prev => ({
@@ -81,7 +86,16 @@ export function useDecisionPage() {
         currentSequence,
         priorityProfile,
       });
-      setState(prev => applyPredictResponse(prev, result));
+      // applyPredictResponse를 setState updater 안에서 실행하면 React 렌더 단계에서
+      // 에러가 throw될 경우 외부 try/catch에 잡히지 않아 흰 화면이 됩니다.
+      // updater 내부에서 직접 catch해 isPredicting을 안전하게 해제합니다.
+      setState(prev => {
+        try {
+          return applyPredictResponse(prev, result);
+        } catch {
+          return { ...prev, isPredicting: false };
+        }
+      });
     } catch {
       setState(prev => ({ ...prev, isPredicting: false }));
     }
@@ -115,15 +129,6 @@ export function useDecisionPage() {
     void runPredict(recommendedSequence, currentSequence, profile);
   }, []);
 
-  // ── 초기화 ─────────────────────────────────────────────────────
-
-  /** currentSequence ← recommendedSequence 후 POST /predict 1회 */
-  const handleReset = useCallback(() => {
-    const { recommendedSequence, priorityProfile } = stateRef.current;
-    setState(prev => applySequenceReset(prev)); // isPredicting: true 포함
-    void runPredict(recommendedSequence, recommendedSequence, priorityProfile);
-  }, []);
-
   // ── 확정 ───────────────────────────────────────────────────────
 
   /** POST /decisions — saveStatus: saving → success/error */
@@ -153,7 +158,8 @@ export function useDecisionPage() {
 
   /** POST /explain — isExplaining: true → llmExplanation 갱신 */
   const handleExplain = useCallback(async () => {
-    const { currentSequence, comparisonState, riskWarnings } = stateRef.current;
+    const { currentSequence, comparisonState, comparisonSummary, riskWarnings, priorityProfile } =
+      stateRef.current;
     if (!comparisonState) return;
     setState(prev => ({ ...prev, isExplaining: true }));
     try {
@@ -161,12 +167,25 @@ export function useDecisionPage() {
         planId: DEMO_PLAN_ID,
         currentSequence,
         comparisonState,
+        comparisonSummary,
         riskWarnings,
+        priorityProfile,
       });
       setState(prev => applyExplainResponse(prev, result));
     } catch {
       setState(prev => ({ ...prev, isExplaining: false }));
     }
+  }, []);
+
+  /** 현재 순서를 추천 순서로 초기화 후 POST /predict 1회 */
+  const handleReset = useCallback(() => {
+    const { recommendedSequence, priorityProfile } = stateRef.current;
+    setState(prev => ({
+      ...prev,
+      currentSequence: recommendedSequence,
+      isPredicting: true,
+    }));
+    void runPredict(recommendedSequence, recommendedSequence, priorityProfile);
   }, []);
 
   /** CommitResultModal 닫기 → workflowState draft 복귀 */

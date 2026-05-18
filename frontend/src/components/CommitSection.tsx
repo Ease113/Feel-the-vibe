@@ -1,6 +1,5 @@
-import { useState } from 'react';
 import { Check } from 'lucide-react';
-import type { RiskWarning, SaveStatus } from '../api/types';
+import type { SaveStatus } from '../api/types';
 
 interface CommitResultModalProps {
   decisionId: string;
@@ -8,27 +7,47 @@ interface CommitResultModalProps {
   onClose: () => void;
 }
 
+function formatCommittedAt(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function CommitResultModal({ decisionId, committedAt, onClose }: CommitResultModalProps) {
-  const when = new Date(committedAt).toLocaleString('ko-KR', {
-    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-  });
   return (
     <div className="modal-backdrop" onClick={onClose} role="presentation">
-      <div className="modal-card" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
-        <div className="modal-icon">✓</div>
-        <div className="modal-title">생산 순서 확정 완료</div>
-        <p className="modal-sub">현재 순서가 확정되었습니다. 확정 기록은 의사결정 로그에서 확인할 수 있습니다.</p>
-        <div className="modal-meta">{decisionId} · {when}</div>
-        <button type="button" className="btn-modal-close" onClick={onClose}>
-          닫기 · 계속 편집
-        </button>
+      <div
+        className="commit-result-modal"
+        onClick={e => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="commit-result-title"
+      >
+        <div className="commit-result-modal__hd">
+          <h2 id="commit-result-title" className="commit-result-modal__title">
+            생산 순서가 확정되었습니다
+          </h2>
+        </div>
+        <div className="commit-result-modal__bd">
+          <p className="commit-result-modal__msg">
+            의사결정이 저장되었습니다. 닫으면 계속 수정할 수 있으며, 다음 확정 시 새 로그가 생성됩니다.
+          </p>
+          <div className="commit-result-modal__id">{decisionId}</div>
+          <time className="commit-result-modal__time" dateTime={committedAt}>
+            {formatCommittedAt(committedAt)}
+          </time>
+        </div>
+        <div className="commit-result-modal__ft">
+          <button type="button" className="btn-commit-result-close" onClick={onClose}>
+            닫기
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
 interface Props {
-  riskWarnings: RiskWarning[];
   decisionMemo: string;
   saveStatus: SaveStatus;
   commitBlockReason: string | null;
@@ -43,12 +62,10 @@ interface Props {
 /**
  * 최종 확정 패널 + CommitResultModal.
  *
- * 고위험 전환이 있으면 확인 체크박스를 요구한다.
+ * riskWarnings는 soft warning이며 확정 차단 조건이 아니다 (commitBlockReason만 차단).
  * saveStatus='saving' 중에는 버튼을 비활성화한다.
- * workflowState='committed'(isCommitted=true) 시 모달을 표시한다.
  */
 export default function CommitSection({
-  riskWarnings,
   decisionMemo,
   saveStatus,
   commitBlockReason,
@@ -59,12 +76,8 @@ export default function CommitSection({
   onCommit,
   onCommitClose,
 }: Props) {
-  const [riskAcknowledged, setRiskAcknowledged] = useState(false);
-
-  const highRiskCount = riskWarnings.filter(w => w.severity === 'HIGH').length;
-  const needsAck = highRiskCount > 0;
   const isSaving = saveStatus === 'saving';
-  const isDisabled = isSaving || (needsAck && !riskAcknowledged) || !!commitBlockReason;
+  const isDisabled = isSaving || !!commitBlockReason;
 
   return (
     <>
@@ -85,21 +98,6 @@ export default function CommitSection({
             onChange={e => onMemoChange(e.target.value)}
             disabled={isSaving}
           />
-
-          {needsAck && (
-            <>
-              <p className="commit-note">위험 전환이 있어도 확정할 수 있습니다.</p>
-              <label className="commit-risk">
-                <input
-                  type="checkbox"
-                  checked={riskAcknowledged}
-                  onChange={e => setRiskAcknowledged(e.target.checked)}
-                  disabled={isSaving}
-                />
-                <span>고위험 전환 {highRiskCount}건을 확인했습니다</span>
-              </label>
-            </>
-          )}
 
           {saveStatus === 'error' && commitBlockReason && (
             <p className="commit-error">{commitBlockReason}</p>

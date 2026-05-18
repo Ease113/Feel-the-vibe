@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import DashboardPage from './pages/DashboardPage';
 import DecisionPage from './pages/DecisionPage';
+import ErrorBoundary from './components/ErrorBoundary';
 
 type Page = 'decision' | 'dashboard';
 
@@ -76,7 +77,9 @@ export default function App() {
       </nav>
 
       <main className="page">
-        {page === 'decision' ? <DecisionPage /> : <DashboardPage />}
+        <ErrorBoundary>
+          {page === 'decision' ? <DecisionPage /> : <DashboardPage />}
+        </ErrorBoundary>
       </main>
     </div>
   );

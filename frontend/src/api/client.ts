@@ -96,7 +96,9 @@ export function postExplain(input: {
   planId: string;
   currentSequence: string[];
   comparisonState: ComparisonState;
+  comparisonSummary: string | null;
   riskWarnings: RiskWarning[];
+  priorityProfile: PriorityProfile;
 }) {
   return request<ExplainResponse>('/explain', {
     method: 'POST',
