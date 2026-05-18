@@ -98,3 +98,89 @@
 |---|---|
 | `python3 -m pytest tests/` | 6 passed (`test_health`, `test_rule_engine_black_to_white`, `test_rule_engine_metal_to_light`, `test_ortools_open_path_does_not_pay_return_arc`, **`test_optimize_uses_ortools_when_available`**, `test_optimize_returns_plan_item_permutation`) |
 | `POST /optimize` `optimizer_backend` | `"ortools-routing-open-path"` 확인 |
+
+## 2026-05-19 DB 초기화 idempotency + 테스트 격리
+
+### 배경
+
+`schema.sql`이 decisions 테이블을 새 스키마(`confirmed_at`, `applied_weights`, `context_snapshot`, `confirmed_cost_vector`)로 정의하지만, 2026-05-17 명세 정합성 수정 이전에 만들어진 legacy DB 파일(`created_at` + 14컬럼)이 잔존할 경우 `CREATE TABLE IF NOT EXISTS`가 무시되어 이후 `CREATE INDEX ON decisions (confirmed_at)`이 `OperationalError: no such column: confirmed_at`으로 깨졌습니다. 실DB(`backend/app/data/smartfactory.sqlite3`)에서 라이브 재현 확인. 기존 smoke test가 `/decisions`를 호출하지 않아 회귀를 잡지 못했습니다.
+
+설계 문서: `docs/design/db-init-idempotency.md`.
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|---|---|---|
+| `SQLITE_PATH` env 오버라이드 | `backend/app/core/config.py` | `SMARTFACTORY_DB_PATH` 환경변수로 SQLite 경로 오버라이드. 기본값은 기존 경로 유지 |
+| legacy 스키마 자동 복구 | `backend/app/db/sqlite.py` | `initialize_database()`에 sentinel 컬럼(`confirmed_at`, `applied_weights`, `context_snapshot`, `confirmed_cost_vector`) 검사 + `DROP TABLE decisions` + WARNING 로그(`data loss: N rows`) 추가 |
+| 테스트 DB 격리 | `backend/tests/conftest.py` (신규) | module-level에서 `tempfile.mkdtemp` + `os.environ["SMARTFACTORY_DB_PATH"]` 세팅. app import 이전에 실행되도록 보장 |
+| smoke test 2건 추가 | `backend/tests/test_smoke.py` | `test_initialize_database_recovers_from_legacy_decisions_schema` (legacy 스키마 강제 생성 후 자동 복구 검증) + `test_decisions_lifecycle_post_get_patch_dashboard` (POST → GET → PATCH reviewed → /dashboard 라이프사이클 전체 검증) |
+
+### 검증 결과
+
+| 명령/확인 | 결과 |
+|---|---|
+| `python3 -m pytest tests/ -v` | 8 passed (기존 6 + 신규 2) |
+| `ruff check app/ tests/` | All checks passed |
+| 실DB `backend/app/data/smartfactory.sqlite3` mtime | 테스트 전후 동일 — 격리 확인 |
+| `$TMPDIR/smartfactory-test-*` 임시 디렉토리 | 테스트마다 생성됨 (예: `smartfactory-test-jxjsqnhs`) |
+| 라이브 reproduce: legacy DB로 `/decisions` POST | 수정 전 500 → 수정 후 200 |
+
+### 후속 작업
+
+- `priority_profile` contract 정합 (nested `{base_weight_profile_id, priorities}` 수용 + `applied_weights` 재정규화 + `sequence_risk` multiplier 제외): 별도 design 문서로 진행 예정.
+- 프론트엔드 D&D + API client `/optimize`, `/predict`, `/decisions`, `/validate`, `/explain` 추가.
+- XGBoost 학습 스크립트 보강.
+- `@app.on_event("startup")` deprecation 해소 (lifespan 마이그레이션) — 별도 분리.
+
+## 2026-05-19 priority_profile contract 정합 + sequence_penalty 재조정
+
+### 배경
+
+라이브 reproduce(2026-05-18)에서 `priority_profile`이 contract(`docs/source/DB_state_v1.3.md` §6.1-6.2, `docs/api_contract.md` §29-77)와 어긋난 3건을 식별했습니다.
+
+1. **구조 불일치**: 코드는 flat `{dimension: {label, multiplier}}`만 인식 → contract nested 형식으로 호출하면 모든 차원이 NORMAL로 silently fallback (사용자 슬라이더 무력화).
+2. **applied_weights 의미 불일치**: 정본은 "공장 base × multiplier 재정규화(합=1), 6차원, sequence_risk 제외"인데 코드는 raw multiplier 7차원 (합=7.15 등).
+3. **total_weighted_cost 범위**: DB_state §74는 XGBoost 6차원에만 적용인데 코드는 sequence_risk × multiplier도 합산해 이중 계산.
+
+spec 적용에 따라 HIGH 전환 단독 objective 기여도가 45 → 10으로 축소되는 부작용이 있어 sequence_rules.json penalty 값도 함께 재조정했습니다.
+
+설계 문서: `docs/design/priority-profile-contract.md`.
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|---|---|---|
+| 새 상수 + nested/flat 흡수 normalize | `backend/app/services/priority.py` | `BASE_WEIGHT_DIMENSIONS`(6), `OPERATOR_PRIORITY_DIMENSIONS`(5), `FACTORY_DEFAULT_V1_BASE_WEIGHTS` (contract §6.2 역산값) 추가. `default_priority_profile()` 반환을 nested 정본 형식으로 변경. `normalize_priority_profile()`이 nested + flat + None 입력을 모두 graceful 수용하며 6차원 합=1 `applied_weights` 반환 |
+| `total_weighted_cost` 합산 범위 한정 | `backend/app/services/optimizer.py` | `evaluate()`와 `_build_score_matrix()`의 weighted sum을 `BASE_WEIGHT_DIMENSIONS` 6차원으로 한정. `sequence_risk`는 `aggregated_cost` 7차원 display에만 잔존 |
+| nested priority_profile 인식 | `backend/app/services/explanation_service.py` | `profile.get("priorities", profile)` 패턴으로 양쪽 형식 처리 |
+| penalty 재조정 | `backend/app/data/raw/sequence_rules.json` | SR-001 10→35, SR-002 6→30, SR-003 7→18, SR-004 8→32 (severity-tier 기준, 기존 상대 순서 보존) |
+| smoke test 5건 추가 | `backend/tests/test_smoke.py` | nested 입력 정합 / flat graceful / `/plans` nested 응답 / `/optimize` HIGH 영향 / aggregated_cost sequence_risk 보존 |
+| contract 예시 갱신 | `docs/api_contract.md` | total_weighted_cost 404349.64→76155.71, 478030.01→89942.18, objective_score / recommended / current / diff / diff_rate / comparison_summary / sequence_penalty / penalty 값 일괄 갱신 |
+
+### Frontend 변경은 별도 담당자에게 hand-off
+
+사용자 요청으로 `frontend/src/api/types.ts`는 본 작업에서 변경하지 않았습니다. 필요한 변경 사항은 `docs/design/priority-profile-contract.md`의 "Frontend Hand-off Note" 절에 명시 (OperatorPriorityDimension 타입, PriorityProfile 인터페이스, PlanResponse 갱신).
+
+backend는 nested + flat 둘 다 받으므로 frontend 변경 전에도 동작은 정상. 단 slider가 contract대로 효과를 내려면 nested 형식으로 보내야 함.
+
+### 검증 결과
+
+| 명령/확인 | 결과 |
+|---|---|
+| `python3 -m pytest tests/ -v` | 13 passed (기존 8 + 신규 5) |
+| `ruff check app/ tests/` | All checks passed |
+| `/optimize` with contract nested (wash=HIGH) | `objective_score = 76155.71`, `optimizer_backend = "ortools-routing-open-path"` |
+| `/optimize` empty profile | 76155.71 (HIGH 적용으로 점수 차이 발생 확인) |
+| `/predict` 위반 sequence | `current.sequence_penalty = 53.0` (SR-001 35 + SR-003 18), `objective_delta = 13839.47` |
+| `/validate` BLACK→WHITE 전환 | `penalty: 35.0` (재조정 반영) |
+| `applied_weights` (contract priority) | `{setup:0.134, wash:0.232, downtime:0.232, material:0.134, packaging:0.089, labor:0.179}` — contract §6.2 정확히 일치 |
+| `applied_weights`에 `sequence_risk` | 미포함 (spec 부합) |
+| `aggregated_cost`에 `sequence_risk` | 포함 (display 유지) |
+
+### 후속 작업
+
+- **Frontend**: `frontend/src/api/types.ts` 갱신 + `PriorityProfilePanel` 슬라이더 구현 (별도 담당자).
+- `sequence_risk` continuous(1/18/35) → binary(0/1) 정렬 (DB_state §6.4): implementation_log 2026-05-17 보류 항목과 묶어 별도 task.
+- 프론트엔드 D&D + API client `/optimize`, `/predict`, `/decisions` 추가 (Task #3).
+- XGBoost 학습 스크립트 보강 (Task #4).
