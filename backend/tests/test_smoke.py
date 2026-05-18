@@ -1,3 +1,5 @@
+import sqlite3
+
 from fastapi.testclient import TestClient
 import pytest
 
@@ -102,3 +104,66 @@ def test_optimize_returns_plan_item_permutation() -> None:
         payload["total_weighted_cost"] + payload["sequence_penalty"],
         2,
     )
+
+
+def test_initialize_database_recovers_from_legacy_decisions_schema() -> None:
+    """legacy created_at 스키마가 남아 있어도 init이 자동 복구해야 한다."""
+    from app.core.config import SQLITE_PATH
+    from app.db.sqlite import initialize_database
+
+    with sqlite3.connect(SQLITE_PATH) as con:
+        con.execute("DROP TABLE IF EXISTS decisions")
+        con.execute(
+            "CREATE TABLE decisions ("
+            "decision_id TEXT PRIMARY KEY, plan_id TEXT, created_at TEXT)"
+        )
+        con.execute(
+            "INSERT INTO decisions VALUES ('DEC-LEGACY', 'demo-plan-001', '2026-01-01')"
+        )
+
+    initialize_database()  # legacy 감지 → DROP → 새 스키마 재생성
+
+    with sqlite3.connect(SQLITE_PATH) as con:
+        cols = {row[1] for row in con.execute("PRAGMA table_info(decisions)").fetchall()}
+
+    assert "confirmed_at" in cols
+    assert "applied_weights" in cols
+    assert "context_snapshot" in cols
+    assert "confirmed_cost_vector" in cols
+
+
+def test_decisions_lifecycle_post_get_patch_dashboard() -> None:
+    """POST /decisions → GET → PATCH reviewed → /dashboard 반영을 한 번에 검증한다."""
+    from app.core.config import SQLITE_PATH
+    from app.db.sqlite import initialize_database
+
+    SQLITE_PATH.unlink(missing_ok=True)  # 깨끗한 시작 상태로 격리.
+    initialize_database()
+
+    payload = {
+        "plan_id": "demo-plan-001",
+        "recommended_sequence": ["PI-003", "PI-001", "PI-004", "PI-005", "PI-002"],
+        "confirmed_sequence": ["PI-001", "PI-002", "PI-003", "PI-004", "PI-005"],
+        "priority_profile": {},
+    }
+    created = client.post("/decisions", json=payload)
+    assert created.status_code == 200
+    decision_id = created.json()["decision_id"]
+    assert decision_id.startswith("DEC-")
+
+    fetched = client.get(f"/decisions/{decision_id}")
+    assert fetched.status_code == 200
+    body = fetched.json()
+    assert "confirmed_at" in body
+    assert body["plan_id"] == "demo-plan-001"
+    assert body["reviewed"] is False
+
+    patched = client.patch(f"/decisions/{decision_id}/reviewed", json={"reviewed": True})
+    assert patched.status_code == 200
+    assert patched.json()["reviewed"] is True
+
+    dashboard = client.get("/dashboard")
+    assert dashboard.status_code == 200
+    summary = dashboard.json()["dashboard_summary"]
+    assert summary["decision_count"] >= 1
+
