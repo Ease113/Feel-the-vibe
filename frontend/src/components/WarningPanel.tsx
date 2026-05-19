@@ -1,5 +1,5 @@
 import type { RiskWarning } from '../api/types';
-import { SEVERITY_UI } from '../api/types';
+import SeverityBadge from './SeverityBadge';
 
 interface Props {
   riskWarnings: RiskWarning[];
@@ -37,9 +37,7 @@ export default function WarningPanel({ riskWarnings, isPredicting }: Props) {
                 className="warn-item"
               >
                 <div className="warn-item-header">
-                  <span className={`warn-sev-badge${isHigh ? ' warn-sev-badge--high' : ' warn-sev-badge--med'}`}>
-                    {SEVERITY_UI[warning.severity]}
-                  </span>
+                  <SeverityBadge severity={warning.severity} />
                   <span className="warn-penalty">
                     penalty {Math.round(warning.penalty).toLocaleString()}
                   </span>
