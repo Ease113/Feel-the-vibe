@@ -1,12 +1,12 @@
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import type {
   AppliedWeights,
   PlanItem,
   RiskWarning,
   TransitionCost,
-  WarningSeverity,
 } from '../api/types';
 import { SEVERITY_UI } from '../api/types';
+import SeverityBadge from './SeverityBadge';
 import {
   computeTransitionWeightedCost,
   formatLiters,
@@ -14,13 +14,6 @@ import {
   formatScore,
   formatWon,
 } from '../utils/costFormat';
-
-function SevBadge({ severity }: { severity: WarningSeverity | null }) {
-  if (severity === null) return <span className="badge-low">—</span>;
-  if (severity === 'HIGH') return <span className="risk-pill">HIGH</span>;
-  if (severity === 'MEDIUM') return <span className="badge-med">MED</span>;
-  return <span className="badge-low">LOW</span>;
-}
 
 function buildTableFooter(transitionCount: number, riskWarnings: RiskWarning[]): string {
   return `인접 전환 ${transitionCount}건 · rule 경고 ${riskWarnings.length}건`;
@@ -34,7 +27,6 @@ interface Props {
   appliedWeights: AppliedWeights | null;
   selectedKey: string | null;
   onSelectKey: (key: string | null) => void;
-  onReset: () => void;
 }
 
 /**
@@ -51,7 +43,6 @@ export default function TransitionAnalysisTable({
   appliedWeights,
   selectedKey,
   onSelectKey,
-  onReset,
 }: Props) {
   const itemMap = new Map(planItems.map(i => [i.planItemId, i]));
 
@@ -97,9 +88,7 @@ export default function TransitionAnalysisTable({
             <h2 className="section-lbl">전환 분석</h2>
             <p className="section-sub">{sectionSub}</p>
           </div>
-          <button type="button" className="btn-reset" onClick={onReset}>
-            추천 순서로 초기화
-          </button>
+
         </div>
 
         <div className="tbl-wrap">
@@ -147,9 +136,9 @@ export default function TransitionAnalysisTable({
                   <span>{formatWon(dims.laborCost)}</span>
                   <span>{formatLiters(dims.materialLoss)}</span>
                   <span>{formatMinutes(dims.packagingTime)}</span>
-                  <span><SevBadge severity={tc.severity} /></span>
+                  <span><SeverityBadge severity={tc.severity} /></span>
                   <span className="tbl-chevron">
-                    {isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                    {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                   </span>
                 </div>
 

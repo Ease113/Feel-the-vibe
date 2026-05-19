@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 import type { OperatingContext, PriorityLabel, PriorityProfile } from '../api/types';
 import {
@@ -115,7 +116,9 @@ export default function EvaluationConditionsPanel({
               ))}
             </div>
           </div>
-          <span className="eval-chevron" aria-hidden="true">▾</span>
+          <span className="eval-chevron" aria-hidden="true">
+            {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </span>
         </summary>
 
         <div className="eval-body">

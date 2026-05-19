@@ -617,12 +617,6 @@ export interface DecisionPageState {
   /** EvaluationConditionsPanel 접기/펼치기 */
   isEvaluationPanelExpanded: boolean;
 
-  /**
-   * llmExplanation 이 현재 sequence/priorityProfile 기준인지 여부.
-   * 드롭/우선순위 변경 → true, 설명 재생성 성공 → false
-   */
-  isExplanationStale: boolean;
-
   // ── Async 로딩 ───────────────────────────────────────────────
   /** GET /plans + POST /optimize 진입 시퀀스 로딩 중 */
   isOptimizing: boolean;
@@ -739,7 +733,6 @@ export const INITIAL_DECISION_PAGE_STATE: DecisionPageState = {
   saveStatus:                 'idle',
   selectedTransitionKey:      null,
   isEvaluationPanelExpanded:  true,
-  isExplanationStale:         false,
   isOptimizing:               false,
   isPredicting:               false,
   isExplaining:               false,
