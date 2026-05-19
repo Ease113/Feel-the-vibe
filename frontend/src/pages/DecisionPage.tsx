@@ -64,7 +64,6 @@ export default function DecisionPage() {
     decisionId,
     committedAt,
     llmExplanation,
-    isExplanationStale,
     isExplaining,
   } = state;
 
@@ -134,6 +133,7 @@ export default function DecisionPage() {
             onDragStart={handleDragStart}
             onDrop={handleDrop}
             onDragCancel={handleDragCancel}
+            onReset={handleReset}
           />
           <TransitionAnalysisTable
             planItems={planItems}
@@ -143,7 +143,6 @@ export default function DecisionPage() {
             appliedWeights={appliedWeights}
             selectedKey={selectedTransitionKey}
             onSelectKey={handleTransitionSelect}
-            onReset={handleReset}
           />
         </div>
 
@@ -170,7 +169,6 @@ export default function DecisionPage() {
           />
           <ExplainSection
             llmExplanation={llmExplanation}
-            isExplanationStale={isExplanationStale}
             isExplaining={isExplaining}
             comparisonState={comparisonState}
             onExplain={handleExplain}

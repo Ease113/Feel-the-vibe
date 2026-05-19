@@ -16,7 +16,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
-import type { PlanItem, RiskWarning, TransitionCost, WarningSeverity } from '../api/types';
+import type { PlanItem, RiskWarning, TransitionCost } from '../api/types';
 import { formatScore } from '../utils/costFormat';
 import SkuCard from './SkuCard';
 import TransitionSlot from './TransitionSlot';
@@ -25,20 +25,14 @@ function transitionKey(fromId: string, toId: string): string {
   return `${fromId}->${toId}`;
 }
 
-interface WarningInfo {
-  severity: WarningSeverity;
-  toSkuName: string;
-  ruleId: string;
-}
-
 interface SortableCardProps {
   id: string;
   item: PlanItem;
   index: number;
-  warning?: WarningInfo | null;
+  hasOutgoingRisk?: boolean;
 }
 
-function SortableCard({ id, item, index, warning }: SortableCardProps) {
+function SortableCard({ id, item, index, hasOutgoingRisk }: SortableCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
 
@@ -57,7 +51,7 @@ function SortableCard({ id, item, index, warning }: SortableCardProps) {
       <SkuCard
         item={item}
         index={index}
-        warning={warning}
+        hasOutgoingRisk={hasOutgoingRisk}
         trailing={
           <span className="drag-handle" {...listeners} aria-label="드래그 핸들">
             <GripVertical size={14} />
@@ -80,6 +74,7 @@ interface Props {
   onDragStart: () => void;
   onDrop: (nextSequence: string[]) => void;
   onDragCancel: () => void;
+  onReset: () => void;
 }
 
 function WorkspaceChrome({ children }: { children: ReactNode }) {
@@ -121,6 +116,7 @@ export default function DecisionWorkspace({
   onDragStart,
   onDrop,
   onDragCancel,
+  onReset,
 }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -158,16 +154,7 @@ export default function DecisionWorkspace({
   }
 
   const activeIndex = activeId ? currentSequence.indexOf(activeId) : -1;
-  const activeWarning =
-    activeId && activeIndex >= 0
-      ? (() => {
-          const rw = warnMap.get(activeId);
-          const toItem = rw ? itemMap.get(rw.toPlanItemId) : undefined;
-          return rw && toItem
-            ? { severity: rw.severity, toSkuName: toItem.skuName, ruleId: rw.ruleId }
-            : null;
-        })()
-      : null;
+  const activeHasOutgoingRisk = activeId ? warnMap.has(activeId) : false;
 
   const fmtScore = (v: number | null) =>
     v !== null ? formatScore(v) : null;
@@ -211,6 +198,9 @@ export default function DecisionWorkspace({
               ? <span className="score">평가 중…</span>
               : curScore && <span className="score">{curScore}</span>
             }
+            <button type="button" className="btn-reset" onClick={onReset}>
+              추천 순서로 초기화
+            </button>
           </div>
           <div className="seq-stack">
             <DndContext
@@ -225,12 +215,7 @@ export default function DecisionWorkspace({
                   const item = itemMap.get(id);
                   if (!item) return null;
                   const nextId = currentSequence[i + 1];
-                  const rw = warnMap.get(id);
-                  const toItem = rw ? itemMap.get(rw.toPlanItemId) : undefined;
-                  const warning: WarningInfo | null =
-                    rw && toItem
-                      ? { severity: rw.severity, toSkuName: toItem.skuName, ruleId: rw.ruleId }
-                      : null;
+                  const hasOutgoingRisk = warnMap.has(id);
                   const transition = nextId
                     ? transitionMap.get(transitionKey(id, nextId))
                     : undefined;
@@ -242,7 +227,7 @@ export default function DecisionWorkspace({
                         id={id}
                         item={item}
                         index={i + 1}
-                        warning={warning}
+                        hasOutgoingRisk={hasOutgoingRisk}
                       />
                       {transition && nextItem && (
                         <TransitionSlot
@@ -262,7 +247,7 @@ export default function DecisionWorkspace({
                     <SkuCard
                       item={activeItem}
                       index={activeIndex + 1}
-                      warning={activeWarning}
+                      hasOutgoingRisk={activeHasOutgoingRisk}
                       trailing={
                         <span className="drag-handle" aria-hidden="true">
                           <GripVertical size={14} />

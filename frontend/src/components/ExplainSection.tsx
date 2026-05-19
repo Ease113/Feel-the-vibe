@@ -3,7 +3,6 @@ import type { ComparisonState } from '../api/types';
 
 interface Props {
   llmExplanation: string | null;
-  isExplanationStale: boolean;
   isExplaining: boolean;
   comparisonState: ComparisonState | null;
   onExplain: () => void;
@@ -18,7 +17,6 @@ interface Props {
  */
 export default function ExplainSection({
   llmExplanation,
-  isExplanationStale,
   isExplaining,
   comparisonState,
   onExplain,
@@ -31,12 +29,6 @@ export default function ExplainSection({
         AI 설명 <span className="panel-hd-note">(선택)</span>
       </div>
       <div className="side-sec">
-        {isExplanationStale && llmExplanation && (
-          <div className="stale-box">
-            현재 순서와 맞지 않는 설명입니다. 재생성하려면 버튼을 누르세요.
-          </div>
-        )}
-
         {llmExplanation ? (
           <p className="explain-text">{llmExplanation}</p>
         ) : (
@@ -54,7 +46,7 @@ export default function ExplainSection({
           onClick={onExplain}
         >
           <RotateCcw size={11} />
-          {isExplaining ? '생성 중…' : '설명 재생성'}
+          {isExplaining ? '생성 중…' : llmExplanation ? '설명 재생성' : '설명 생성'}
         </button>
       </div>
     </div>

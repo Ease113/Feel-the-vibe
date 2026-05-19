@@ -253,13 +253,12 @@ button { font: inherit; }
 .eval-summary-title { font-size: 12px; font-weight: 700; color: var(--black); }
 
 .eval-chevron {
-  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--subtle);
   flex-shrink: 0;
-  transition: transform .15s ease;
 }
-
-.eval-details[open] .eval-chevron { transform: rotate(180deg); }
 
 .eval-chips {
   display: flex;
@@ -552,7 +551,8 @@ button { font: inherit; }
   display: grid;
   grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.15fr);
   gap: 14px;
-  padding: 14px;
+  /* workspace-box 둥근 클립 영역 밖에 열 테두리가 오도록 여백 확보 */
+  padding: calc(var(--radius) + 8px);
   background: var(--surface);
 }
 
@@ -562,7 +562,8 @@ button { font: inherit; }
   min-width: 0;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
-  overflow: visible;
+  /* 자식 배경이 둥근 테두리 모서리를 덮지 않도록 클립 */
+  overflow: hidden;
 }
 
 .seq-col-head {
@@ -575,12 +576,17 @@ button { font: inherit; }
   display: flex;
   align-items: baseline;
   gap: 6px;
+  border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
 }
 
 .seq-col-head .score {
   font-weight: 500;
   color: var(--muted);
   font-size: 11px;
+}
+
+.seq-col-head .btn-reset {
+  margin-left: auto;
 }
 
 .seq-stack {
@@ -590,6 +596,7 @@ button { font: inherit; }
   gap: 7px;
   background: var(--surface);
   flex: 1;
+  border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px);
 }
 
 .seq-transition-risk {
@@ -661,20 +668,6 @@ button { font: inherit; }
   color: var(--black);
 }
 
-.sku-name--risk {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.sku-name--risk > span:first-child {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
 .sku-tag {
   font-size: 11px;
   color: var(--muted);
@@ -683,8 +676,6 @@ button { font: inherit; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-.sku-card--warn .sku-tag { color: var(--bad); font-weight: 600; }
 
 /* Risk pill */
 
@@ -791,6 +782,21 @@ button { font: inherit; }
   letter-spacing: .04em;
 }
 
+.tbl-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 70px 28px;
+  padding: 12px 13px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.tbl-row:last-of-type { border-bottom: none; }
+.tbl-row.exp, .tbl-row.highlight { background: var(--surface-2); font-weight: 650; }
+
+/* Wide 6D layout — must follow base .tbl-head / .tbl-row (same specificity) */
 .tbl-head--wide,
 .tbl-row--wide {
   grid-template-columns:
@@ -805,20 +811,6 @@ button { font: inherit; }
     28px;
   min-width: 680px;
 }
-
-.tbl-row {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr 70px 28px;
-  padding: 12px 13px;
-  font-size: 12px;
-  border-bottom: 1px solid var(--line);
-  align-items: center;
-  background: var(--surface);
-  color: var(--ink);
-  cursor: pointer;
-}
-.tbl-row:last-of-type { border-bottom: none; }
-.tbl-row.exp, .tbl-row.highlight { background: var(--surface-2); font-weight: 650; }
 
 .trans-box .section-hd {
   margin: 0;
@@ -863,9 +855,6 @@ button { font: inherit; }
 }
 
 .tbl-chevron { text-align: center; color: var(--subtle); font-size: 14px; }
-
-.badge-med { background: var(--surface); color: var(--ink); border: 1px solid var(--ink-2); font-weight: 650; padding: 2px 7px; border-radius: 3px; font-size: 10px; }
-.badge-low { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); font-weight: 600; padding: 2px 7px; border-radius: 3px; font-size: 10px; }
 
 /* ── Side cards ───────────────────────────────────────────── */
 
@@ -1107,10 +1096,6 @@ button { font: inherit; }
   margin-bottom: 5px;
 }
 
-.warn-sev-badge     { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 3px; }
-.warn-sev-badge--high { background: var(--bad-bg); color: var(--bad); }
-.warn-sev-badge--med  { background: #fef3c7;       color: #b45309; }
-
 .warn-penalty { font-size: 12px; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .warn-message { font-size: 12px; color: var(--ink); line-height: 1.45; margin-bottom: 4px; }
 .warn-rec     { font-size: 11px; color: var(--muted); line-height: 1.4; }
@@ -1118,15 +1103,6 @@ button { font: inherit; }
 
 /* ── ExplainSection ───────────────────────────────────────── */
 
-.stale-box {
-  background: var(--black);
-  border-radius: var(--radius);
-  padding: 11px 12px;
-  font-size: 11px;
-  color: #fff;
-  margin-bottom: 9px;
-  line-height: 1.55;
-}
 
 .btn-sm {
   display: inline-flex;

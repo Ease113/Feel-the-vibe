@@ -617,7 +617,7 @@ export function applyPredictResponse(
     comparisonState,
     comparisonSummary:    raw.comparison_summary,
     comparisonDiffs,
-    isExplanationStale:   true,
+    llmExplanation:       null,
     isPredicting:         false,
   };
 }
@@ -660,7 +660,6 @@ export function applyExplainResponse(
   return {
     ...prev,
     llmExplanation:     raw.explanation,
-    isExplanationStale: false,
     isExplaining:       false,
   };
 }
