@@ -33,8 +33,13 @@ class DashboardService:
                 "decision_id": decision["decision_id"],
                 "confirmed_at": decision["confirmed_at"],
                 "objective_score": decision["confirmed_cost"].get("objective_score", 0.0),
-                "wash_cost": decision["confirmed_cost"].get("aggregated_cost", {}).get("wash_cost", 0.0),
-                "sequence_risk": decision["confirmed_cost"].get("aggregated_cost", {}).get("sequence_risk", 0.0),
+                **{
+                    dim: decision["confirmed_cost"].get("aggregated_cost", {}).get(dim, 0.0)
+                    for dim in (
+                        "setup_time", "labor_cost", "material_loss",
+                        "wash_cost", "downtime", "packaging_time", "sequence_risk",
+                    )
+                },
             }
             for decision in reversed(decisions)
         ]
