@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getDashboard } from '../api/client';
 import type { DashboardResponse } from '../api/types';
-import DashboardCharts from '../components/DashboardCharts';
+import DashboardCharts, { DashboardTimeCharts } from '../components/DashboardCharts';
 
 interface RecentDecision {
   decision_id: string;
@@ -102,8 +102,10 @@ export default function DashboardPage() {
         {/* 왼쪽: 비용 트렌드 + 최근 결정 */}
         <div className="dash-main">
           <div>
-            <div className="dash-section-title">비용 트렌드</div>
+            <div className="dash-section-title">비용·위반 추이</div>
             <DashboardCharts data={kpi_trend} />
+            <div className="dash-section-title dash-section-title--spaced">전환 시간 추이</div>
+            <DashboardTimeCharts data={kpi_trend} />
           </div>
 
           <div>
