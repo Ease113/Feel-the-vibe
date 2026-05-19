@@ -1343,6 +1343,10 @@ button { font: inherit; }
   letter-spacing: -.01em;
 }
 
+.dash-section-title--spaced {
+  margin-top: 20px;
+}
+
 .chart-box {
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);

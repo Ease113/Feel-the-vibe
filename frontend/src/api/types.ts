@@ -781,6 +781,20 @@ export const PRIORITY_AXIS_KO: Record<OperatorPriorityDimensionUI, string> = {
 // 9. Dashboard (P1 — wire format 유지)
 // ============================================================
 
+/** GET /dashboard — kpi_trend 항목 (7차원 + objective_score) */
+export interface KpiTrendPoint {
+  decision_id: string;
+  confirmed_at: string;
+  objective_score: number;
+  setup_time: number;
+  labor_cost: number;
+  material_loss: number;
+  wash_cost: number;
+  downtime: number;
+  packaging_time: number;
+  sequence_risk: number;
+}
+
 /** GET /dashboard Response */
 export interface DashboardResponse {
   dashboard_summary: {
@@ -788,7 +802,7 @@ export interface DashboardResponse {
     average_objective_score: number;
     high_risk_transition_count: number;
   };
-  kpi_trend: Array<Record<string, unknown>>;
+  kpi_trend: KpiTrendPoint[];
   risk_patterns: Array<Record<string, unknown>>;
   recent_decisions: Array<Record<string, unknown>>;
   weekly_summary: string;
