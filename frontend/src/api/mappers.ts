@@ -20,6 +20,7 @@
  *   §7  apply 함수   — applyOptimizeResponse, applyPredictResponse 등
  */
 
+import { mapSkuPhysicalLevels } from '../utils/skuLevels';
 import {
   DEFAULT_PRIORITY_ENTRY,
   OPERATOR_PRIORITY_DIMENSIONS,
@@ -243,6 +244,7 @@ export function mapPlanItem(raw: PlanItemRaw): PlanItem {
   const sku = raw.sku;
   const category = (raw.category ?? sku?.category ?? 'normal') as PlanItem['category'];
   const packageSize = raw.package_size as PlanItem['packageSize'];
+  const physical = mapSkuPhysicalLevels(sku as Record<string, unknown> | undefined);
 
   return {
     planItemId:   raw.plan_item_id,
@@ -253,6 +255,7 @@ export function mapPlanItem(raw: PlanItemRaw): PlanItem {
     hexCode:      raw.hex_code ?? sku?.hex_code ?? sku?.color_hex ?? '#CCCCCC',
     category,
     colorFamily:  raw.color_family ?? sku?.color_family,
+    ...physical,
     quantity:     raw.quantity,
     packageSize,
     duePriority:  raw.due_priority,

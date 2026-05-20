@@ -18,6 +18,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import type { PlanItem, RiskWarning, TransitionCost } from '../api/types';
 import { formatScore } from '../utils/costFormat';
+import InfoTip from './InfoTip';
+import SeqSlotRow from './SeqSlotRow';
 import SkuCard from './SkuCard';
 import TransitionSlot from './TransitionSlot';
 
@@ -28,37 +30,43 @@ function transitionKey(fromId: string, toId: string): string {
 interface SortableCardProps {
   id: string;
   item: PlanItem;
-  index: number;
+  slotIndex: number;
   hasOutgoingRisk?: boolean;
 }
 
-function SortableCard({ id, item, index, hasOutgoingRisk }: SortableCardProps) {
+function SortableCard({ id, item, slotIndex, hasOutgoingRisk }: SortableCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
   return (
-    <div
+    <SeqSlotRow
       ref={setNodeRef}
-      className={`sortable-card-wrapper${isDragging ? ' sortable-card-wrapper--dragging' : ''}`}
-      style={style}
+      slotIndex={slotIndex}
+      warn={hasOutgoingRisk}
+      style={
+        isDragging
+          ? undefined
+          : {
+              transform: CSS.Transform.toString(transform),
+              transition,
+            }
+      }
       {...attributes}
     >
-      <SkuCard
-        item={item}
-        index={index}
-        hasOutgoingRisk={hasOutgoingRisk}
-        trailing={
-          <span className="drag-handle" {...listeners} aria-label="드래그 핸들">
-            <GripVertical size={14} />
-          </span>
-        }
-      />
-    </div>
+      <div
+        className={`seq-slot-surface${isDragging ? ' seq-slot-surface--dragging' : ''}`}
+      >
+        <SkuCard
+          item={item}
+          hasOutgoingRisk={hasOutgoingRisk}
+          trailing={
+            <span className="drag-handle" {...listeners} aria-label="드래그 핸들">
+              <GripVertical size={14} />
+            </span>
+          }
+        />
+      </div>
+    </SeqSlotRow>
   );
 }
 
@@ -83,14 +91,14 @@ function WorkspaceChrome({ children }: { children: ReactNode }) {
       <div className="workspace-box">
         <div className="section-hd">
           <div>
-            <h2 className="section-lbl">생산 순서</h2>
+            <h2 className="section-lbl section-lbl--with-info">
+              생산 순서
+              <InfoTip label="생산 순서 상세">
+                낮은 objectiveScore가 유리. 카드 key = plan_item_id.
+              </InfoTip>
+            </h2>
             <p className="section-sub">현재안을 드래그해 순서를 바꿉니다</p>
           </div>
-          <span className="panel-hd-note">낮은 objectiveScore가 유리</span>
-        </div>
-        <div className="panel-hd panel-hd--sub">
-          <span>추천안 vs 현재안</span>
-          <span className="panel-hd-note">카드 key = plan_item_id</span>
         </div>
         <div className="ws-toolbar">
           <span className="ws-toolbar-hint">
@@ -119,9 +127,10 @@ export default function DecisionWorkspace({
   onReset,
 }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [overlayWidth, setOverlayWidth] = useState<number | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 14 } }),
   );
 
   const itemMap = new Map(planItems.map(i => [i.planItemId, i]));
@@ -133,12 +142,14 @@ export default function DecisionWorkspace({
   /** 드래그 overlay 대상과 페이지 드래그 상태를 함께 시작한다. */
   function handleDragStart(event: DragStartEvent) {
     setActiveId(String(event.active.id));
+    setOverlayWidth(event.active.rect.current.initial?.width ?? null);
     onDragStart();
   }
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     setActiveId(null);
+    setOverlayWidth(null);
     if (over && active.id !== over.id) {
       const oldIndex = currentSequence.indexOf(String(active.id));
       const newIndex = currentSequence.indexOf(String(over.id));
@@ -150,10 +161,10 @@ export default function DecisionWorkspace({
 
   function handleDragCancel() {
     setActiveId(null);
+    setOverlayWidth(null);
     onDragCancel();
   }
 
-  const activeIndex = activeId ? currentSequence.indexOf(activeId) : -1;
   const activeHasOutgoingRisk = activeId ? warnMap.has(activeId) : false;
 
   const fmtScore = (v: number | null) =>
@@ -171,6 +182,7 @@ export default function DecisionWorkspace({
   }
 
   const activeItem = activeId ? itemMap.get(activeId) : null;
+  const activeSlotIndex = activeId ? currentSequence.indexOf(activeId) + 1 : 0;
   const recScore = fmtScore(recommendedScore);
   const curScore = fmtScore(currentScore);
 
@@ -186,7 +198,12 @@ export default function DecisionWorkspace({
             {recommendedSequence.map((id, i) => {
               const item = itemMap.get(id);
               if (!item) return null;
-              return <SkuCard key={id} item={item} index={i + 1} />;
+              const slotIndex = i + 1;
+              return (
+                <SeqSlotRow key={`rec-slot-${i}`} slotIndex={slotIndex}>
+                  <SkuCard item={item} readonly />
+                </SeqSlotRow>
+              );
             })}
           </div>
         </div>
@@ -206,6 +223,7 @@ export default function DecisionWorkspace({
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
+              autoScroll={false}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
               onDragCancel={handleDragCancel}
@@ -221,12 +239,14 @@ export default function DecisionWorkspace({
                     : undefined;
                   const nextItem = nextId ? itemMap.get(nextId) : undefined;
 
+                  const slotIndex = i + 1;
+
                   return (
-                    <Fragment key={id}>
+                    <Fragment key={`slot-${i}`}>
                       <SortableCard
                         id={id}
                         item={item}
-                        index={i + 1}
+                        slotIndex={slotIndex}
                         hasOutgoingRisk={hasOutgoingRisk}
                       />
                       {transition && nextItem && (
@@ -242,18 +262,30 @@ export default function DecisionWorkspace({
               </SortableContext>
 
               <DragOverlay adjustScale={false} dropAnimation={null}>
-                {activeItem && activeIndex >= 0 ? (
-                  <div className="drag-overlay-card sortable-card-wrapper">
-                    <SkuCard
-                      item={activeItem}
-                      index={activeIndex + 1}
-                      hasOutgoingRisk={activeHasOutgoingRisk}
-                      trailing={
-                        <span className="drag-handle" aria-hidden="true">
-                          <GripVertical size={14} />
-                        </span>
-                      }
-                    />
+                {activeItem ? (
+                  <div
+                    className="drag-overlay-card"
+                    style={
+                      overlayWidth != null ? { width: overlayWidth } : undefined
+                    }
+                  >
+                    <SeqSlotRow
+                      slotIndex={activeSlotIndex}
+                      warn={activeHasOutgoingRisk}
+                    >
+                      <div className="seq-slot-surface">
+                        <SkuCard
+                          item={activeItem}
+                          overlay
+                          hasOutgoingRisk={activeHasOutgoingRisk}
+                          trailing={
+                            <span className="drag-handle" aria-hidden="true">
+                              <GripVertical size={14} />
+                            </span>
+                          }
+                        />
+                      </div>
+                    </SeqSlotRow>
                   </div>
                 ) : null}
               </DragOverlay>

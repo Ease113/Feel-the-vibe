@@ -859,6 +859,13 @@ Response:
 
 SQLite `decisions` 로그 기반 KPI 요약, 추이, 최근 결정을 반환합니다.
 
+Query (optional):
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `recent_page` | integer ≥ 1 | `1` | 최근 확정 결정 목록 페이지 (1부터) |
+| `recent_page_size` | integer 1–50 | `5` | 페이지당 최근 결정 건수 |
+
 Response:
 
 ```json
@@ -873,7 +880,12 @@ Response:
       "decision_id": "DEC-ABC123DEF456",
       "confirmed_at": "2026-05-17T10:30:00.000000+00:00",
       "objective_score": 89995.18,
+      "setup_time": 88.0,
+      "labor_cost": 326000.0,
+      "material_loss": 15.1,
       "wash_cost": 168011.33,
+      "downtime": 61.0,
+      "packaging_time": 32.0,
       "sequence_risk": 55.0
     }
   ],
@@ -893,11 +905,17 @@ Response:
       "confirmed_at": "2026-05-17T10:30:00.000000+00:00"
     }
   ],
+  "recent_decisions_meta": {
+    "page": 1,
+    "page_size": 5,
+    "total": 3,
+    "total_pages": 1
+  },
   "weekly_summary": "이번 기간에는 3건의 생산순서 결정이 저장되었고, 고위험 색상 전환은 4건 감지되었습니다."
 }
 ```
 
-저장된 결정이 없으면 `decision_count`, `average_objective_score`, `high_risk_transition_count`는 `0`이고, `kpi_trend`, `risk_patterns`, `recent_decisions`는 빈 배열입니다. 이때 `weekly_summary`는 첫 생산순서를 확정하면 KPI가 생성된다는 안내 문구입니다.
+저장된 결정이 없으면 `decision_count`, `average_objective_score`, `high_risk_transition_count`는 `0`이고, `kpi_trend`, `risk_patterns`, `recent_decisions`는 빈 배열이며 `recent_decisions_meta`는 `{ "page": 1, "page_size": 5, "total": 0, "total_pages": 0 }`입니다. 이때 `weekly_summary`는 첫 생산순서를 확정하면 KPI가 생성된다는 안내 문구입니다.
 
 ## POST `/explain`
 

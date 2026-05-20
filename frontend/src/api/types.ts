@@ -207,6 +207,9 @@ export interface PlanItemSkuRaw {
   color_family?: string;
   hex_code: string;
   color_hex?: string;
+  pigment_intensity?: string | number;
+  gloss_level?: string | number;
+  viscosity?: string | number;
 }
 
 /**
@@ -337,6 +340,12 @@ export interface PlanItem {
   hexCode: string;
   category: SkuCategory;
   colorFamily?: string | undefined;
+  /** 0~100 정수 레벨 (mapper 정규화) */
+  glossLevel?: number;
+  viscosityLevel?: number;
+  pigmentIntensity?: number;
+  /** (1 - pigment_intensity) × 100, mapper derive */
+  brightnessLevel?: number;
   quantity: number;
   packageSize: PackageSize;
   duePriority?: number | null | undefined;
@@ -795,6 +804,72 @@ export interface KpiTrendPoint {
   sequence_risk: number;
 }
 
+/** GET /dashboard — 최근 확정 결정 항목 */
+export interface RecentDecisionItem {
+  decision_id: string;
+  plan_id: string;
+  objective_score: number;
+  risk_warning_count: number;
+  reviewed: boolean;
+  confirmed_at: string;
+}
+
+/** GET /dashboard — recent_decisions 페이지네이션 메타 */
+export interface RecentDecisionsMeta {
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
+// ============================================================
+// 10. Decision Detail (GET /decisions/{id})
+// ============================================================
+
+export interface DecisionContextSnapshot {
+  visible: { lineId: string; shift: Shift; crewSize: number };
+  resolved?: Record<string, unknown>;
+}
+
+export interface DecisionCostVector {
+  aggregated_cost: CostVectorRaw;
+  total_weighted_cost: number;
+  sequence_penalty: number;
+  objective_score: number;
+}
+
+export interface DecisionDetailRaw {
+  decision_id: string;
+  plan_id: string;
+  user_id: string;
+  recommended_sequence: string[];
+  confirmed_sequence: string[];
+  priority_profile: PriorityProfileRaw;
+  applied_weights: AppliedWeightsRaw;
+  context_snapshot: DecisionContextSnapshot;
+  confirmed_cost: DecisionCostVector | null;
+  transition_costs: TransitionCostRaw[];
+  total_weighted_cost: number;
+  sequence_penalty: number;
+  objective_score: number;
+  comparison_state: {
+    basis: 'objectiveScore';
+    recommended: number;
+    current: number;
+    diff: number;
+    diff_rate: number;
+  };
+  comparison_summary: string;
+  cost_delta_vs_recommended: Partial<Record<string, number>>;
+  violation_count: number;
+  violation_details: RiskWarningRaw[];
+  decision_memo: string | null;
+  model_version: string;
+  rule_version: string;
+  confirmed_at: string;
+  reviewed: boolean;
+}
+
 /** GET /dashboard Response */
 export interface DashboardResponse {
   dashboard_summary: {
@@ -804,6 +879,7 @@ export interface DashboardResponse {
   };
   kpi_trend: KpiTrendPoint[];
   risk_patterns: Array<Record<string, unknown>>;
-  recent_decisions: Array<Record<string, unknown>>;
+  recent_decisions: RecentDecisionItem[];
+  recent_decisions_meta: RecentDecisionsMeta;
   weekly_summary: string;
 }

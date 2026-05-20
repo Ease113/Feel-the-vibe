@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 import type { OperatingContext, PriorityLabel, PriorityProfile } from '../api/types';
+import InfoTip from './InfoTip';
 import {
   PRIORITY_AXIS_KO,
   PRIORITY_LABEL_KO,
@@ -35,16 +36,15 @@ interface Props {
   onOperatingContextChange?: (ctx: OperatingContext) => void;
 }
 
-/** NORMAL이 아닌 축을 요약 칩으로 반환 (최대 3개) */
+/** NORMAL이 아닌 축을 요약 칩으로 반환 (5축 전부 반영) */
 function priorityChips(profile: PriorityProfile): PriorityChip[] {
   return PRIORITY_AXES
     .filter(key => profile.priorities[key].label !== 'NORMAL')
-    .slice(0, 3)
     .map(key => {
       const { label } = profile.priorities[key];
       return {
         key,
-        text: `${PRIORITY_AXIS_CHIP_KO[key]} ${PRIORITY_LABEL_KO[label]} (${label})`,
+        text: `${PRIORITY_AXIS_CHIP_KO[key]} ${PRIORITY_LABEL_KO[label]}`,
         highlighted: profile.priorities[key].multiplier > 1.0,
       };
     });
@@ -126,17 +126,18 @@ export default function EvaluationConditionsPanel({
             <div className="eval-col">
               <div className="eval-sec-lbl">
                 운영 컨텍스트
-                <span className="eval-sec-hint">
-                  — lineId 표시, shift·crewSize 선택 / workerSkill·equipmentCondition 등 hidden 피처는 서버 처리
-                </span>
+                <InfoTip label="운영 컨텍스트 상세">
+                  lineId 표시, shift·crewSize 선택.
+                  workerSkill·equipmentCondition 등 hidden 피처는 서버 처리.
+                </InfoTip>
               </div>
               <div className="eval-ctx-row">
                 <span className="eval-ctx-plan">{operatingContext.lineId}</span>
                 <span className="ctx-field">
                   <label htmlFor="eval-shift">교대</label>
                   <select id="eval-shift" value={shift} onChange={handleShiftChange}>
-                    <option value="day">주간 (day)</option>
-                    <option value="night">야간 (night)</option>
+                    <option value="day">주간</option>
+                    <option value="night">야간</option>
                   </select>
                 </span>
                 <span className="ctx-field">
@@ -153,9 +154,12 @@ export default function EvaluationConditionsPanel({
             <div className="eval-col">
               <div className="eval-sec-lbl">
                 운영 우선순위
-                <span className="eval-sec-hint">
-                  — VERY_LOW(×0.70) / LOW(×0.85) / NORMAL(×1.00) / HIGH(×1.15) / VERY_HIGH(×1.30) · appliedWeights는 서버 재정규화
-                </span>
+                <InfoTip label="운영 우선순위 상세">
+                  VERY_LOW(×0.70) / LOW(×0.85) / NORMAL(×1.00) / HIGH(×1.15) / VERY_HIGH(×1.30).
+                  appliedWeights는 서버 재정규화.
+                  필드: washCost, downtime, materialLoss, packagingTime, laborCost.
+                  setupTime은 선택 제외 · 내부 appliedWeights 계산에 포함.
+                </InfoTip>
               </div>
 
               <div className="pri-likert-wrap">
@@ -173,16 +177,7 @@ export default function EvaluationConditionsPanel({
                   return (
                     <div key={axis} className="pri-block likert-row">
                       <div className="pri-lbl-col">
-                        <div className="pri-lbl">
-                          {PRIORITY_AXIS_KO[axis]}
-                          <span className="field-key">{axis}</span>
-                        </div>
-                        <div className="pri-val">
-                          {PRIORITY_LABEL_KO[current.label]}
-                          <span className="pri-enum">
-                            {current.label} ×{current.multiplier.toFixed(2)}
-                          </span>
-                        </div>
+                        <div className="pri-lbl">{PRIORITY_AXIS_KO[axis]}</div>
                       </div>
                       <div
                         className="likert-track"
@@ -190,11 +185,7 @@ export default function EvaluationConditionsPanel({
                         aria-label={`${PRIORITY_AXIS_KO[axis]} 우선순위`}
                       >
                         {PRIORITY_LABELS.map(lbl => (
-                          <label
-                            key={lbl}
-                            className="likert-point"
-                            title={`${lbl} ×${PRIORITY_MULTIPLIER[lbl].toFixed(2)}`}
-                          >
+                          <label key={lbl} className="likert-point">
                             <input
                               type="radio"
                               name={`pri-${axis}`}
@@ -212,9 +203,6 @@ export default function EvaluationConditionsPanel({
                 })}
               </div>
 
-              <p className="eval-setup-note">
-                setupTime은 선택 제외 · 내부 appliedWeights 계산에 포함됨
-              </p>
             </div>
           </div>
         </div>
