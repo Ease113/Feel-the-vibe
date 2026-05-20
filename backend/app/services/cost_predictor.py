@@ -19,9 +19,10 @@ class CostPredictor:
     ) -> dict[str, float]:
         """두 plan item 사이의 6개 비용 차원을 휴리스틱으로 예측한다.
 
-        밝기·점도 차이, 포장 변경, 색상군 전환, 메탈릭 여부, 설비 상태, 작업자 숙련도를
-        복합 가중치로 합산해 complexity를 계산한다. XGBoost 모델은 아직 미연동이므로
-        heuristic이 primary path다.
+        밝기·점도·광택 차이, 포장 변경, 색상군 전환, 메탈릭 여부, 설비 상태,
+        작업자 숙련도를 복합 가중치로 합산해 complexity를 계산한다. 광택 차이는
+        세척 부담의 직접 신호이므로 complexity 전파에 더해 wash_cost에도 별도로
+        가산한다. XGBoost 모델은 아직 미연동이므로 heuristic이 primary path다.
 
         Args:
             from_item: 직전 생산 plan item (sku 키 포함).
@@ -36,6 +37,7 @@ class CostPredictor:
         to_sku = to_item["sku"]
         brightness_gap = abs(_brightness_level(from_sku) - _brightness_level(to_sku))
         viscosity_gap = abs(_viscosity_level(from_sku) - _viscosity_level(to_sku))
+        gloss_gap = abs(_gloss_level(from_sku) - _gloss_level(to_sku))
         package_changed = from_item["package_size"] != to_item["package_size"]
         family_changed = from_sku["color_family"] != to_sku["color_family"]
         metallic_change = _is_metallic(from_sku) != _is_metallic(to_sku)
@@ -43,6 +45,9 @@ class CostPredictor:
         complexity = 1.0
         complexity += brightness_gap / 75.0
         complexity += viscosity_gap / 120.0
+        # 광택 차이는 viscosity와 같은 0~100 스케일이지만 세척 항에 별도로 가산되므로
+        # complexity 쪽은 분모를 조금 더 키워 이중 계상의 영향을 줄였다.
+        complexity += gloss_gap / 140.0
         complexity += 0.25 if package_changed else 0.0
         complexity += 0.35 if family_changed else 0.0
         complexity += 0.45 if metallic_change else 0.0
@@ -54,7 +59,13 @@ class CostPredictor:
         downtime = max(3.0, 5.0 * complexity)
         packaging_time = 5.0 + (5.0 if package_changed else 1.2) + complexity
         material_loss = max(0.5, 1.2 * complexity + brightness_gap / 90.0)
-        wash_cost = 14000.0 * complexity + (6500.0 if family_changed else 1500.0)
+        # 광택 잔류는 세척 부담의 직접 신호이므로 wash_cost에 선형 항을 더한다.
+        # gloss_gap 0~70 → 최대 약 6300원, family_changed 점프(6500)와 비슷한 크기.
+        wash_cost = (
+            14000.0 * complexity
+            + (6500.0 if family_changed else 1500.0)
+            + 90.0 * gloss_gap
+        )
         labor_cost = setup_time * float(context.get("crew_size", 3)) * 850.0
 
         return {
@@ -77,6 +88,20 @@ def _viscosity_level(sku: dict[str, Any]) -> float:
     if "viscosity_level" in sku and sku["viscosity_level"] not in ("", None):
         return float(sku["viscosity_level"])
     return float(sku.get("viscosity", 0.5)) * 100.0
+
+
+def _gloss_level(sku: dict[str, Any]) -> float:
+    """SKU dict의 광택 값을 0~100 레벨로 정규화한다.
+
+    CSV는 0~1 스케일로 저장되지만 향후 다른 입력이 0~100으로 들어와도
+    안전하도록 ≤1 인 값만 ×100 한다. 누락/공백은 50.0으로 대체해
+    gap이 0이 되도록 한다(기존 동작 보존).
+    """
+    raw = sku.get("gloss_level")
+    if raw in ("", None):
+        return 50.0
+    value = float(raw)
+    return value * 100.0 if value <= 1.0 else value
 
 
 def _is_metallic(sku: dict[str, Any]) -> bool:
