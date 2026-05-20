@@ -168,6 +168,39 @@ def test_decisions_lifecycle_post_get_patch_dashboard() -> None:
     assert summary["decision_count"] >= 1
 
 
+def test_dashboard_recent_decisions_pagination() -> None:
+    """최근 확정 결정 목록은 recent_page / recent_page_size로 페이지 단위 조회된다."""
+    from app.core.config import SQLITE_PATH
+    from app.db.sqlite import initialize_database
+
+    SQLITE_PATH.unlink(missing_ok=True)
+    initialize_database()
+
+    payload = {
+        "plan_id": "demo-plan-001",
+        "recommended_sequence": ["PI-003", "PI-001", "PI-004", "PI-005", "PI-002"],
+        "confirmed_sequence": ["PI-001", "PI-002", "PI-003", "PI-004", "PI-005"],
+        "priority_profile": {},
+    }
+    for _ in range(6):
+        response = client.post("/decisions", json=payload)
+        assert response.status_code == 200
+
+    page1 = client.get("/dashboard?recent_page=1&recent_page_size=2")
+    assert page1.status_code == 200
+    body1 = page1.json()
+    assert len(body1["recent_decisions"]) == 2
+    meta1 = body1["recent_decisions_meta"]
+    assert meta1 == {"page": 1, "page_size": 2, "total": 6, "total_pages": 3}
+
+    page2 = client.get("/dashboard?recent_page=2&recent_page_size=2")
+    assert page2.status_code == 200
+    body2 = page2.json()
+    assert len(body2["recent_decisions"]) == 2
+    assert body2["recent_decisions_meta"]["page"] == 2
+    assert body1["recent_decisions"][0]["decision_id"] != body2["recent_decisions"][0]["decision_id"]
+
+
 def test_normalize_priority_profile_nested_shape() -> None:
     """contract nested 입력을 받으면 정본 구조 + 합=1 6차원 applied_weights를 돌려준다."""
     from app.services.priority import normalize_priority_profile

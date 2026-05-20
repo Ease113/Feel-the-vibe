@@ -1,5 +1,6 @@
 """저장된 의사결정 로그를 집계해 KPI 대시보드 데이터를 생성하는 서비스."""
 
+import math
 from statistics import mean
 from typing import Any
 
@@ -9,13 +10,23 @@ from app.services.decision_logger import DecisionLogger
 class DashboardService:
     """Builds KPI dashboard data from saved decision logs."""
 
-    def get_dashboard(self) -> dict[str, Any]:
+    def get_dashboard(
+        self,
+        recent_page: int = 1,
+        recent_page_size: int = 5,
+    ) -> dict[str, Any]:
         """저장된 전체 의사결정 로그를 읽어 KPI 집계, 트렌드, 위험 패턴을 반환한다.
 
         결정 건수가 0일 때도 빈 값으로 안전하게 응답한다.
+        recent_decisions는 confirmed_at 내림차순 기준으로 페이지 단위로 잘라 반환한다.
+
+        Args:
+            recent_page: 최근 확정 결정 목록 페이지 (1부터 시작).
+            recent_page_size: 페이지당 최근 결정 건수.
 
         Returns:
-            dashboard_summary, kpi_trend, risk_patterns, recent_decisions, weekly_summary를 담은 딕셔너리.
+            dashboard_summary, kpi_trend, risk_patterns, recent_decisions,
+            recent_decisions_meta, weekly_summary를 담은 딕셔너리.
         """
         decisions = DecisionLogger().list_decisions()
         objective_scores = [
@@ -43,6 +54,11 @@ class DashboardService:
             }
             for decision in reversed(decisions)
         ]
+        total_recent = len(decisions)
+        total_pages = max(1, math.ceil(total_recent / recent_page_size)) if total_recent else 0
+        page = min(max(1, recent_page), total_pages) if total_pages else 1
+        start = (page - 1) * recent_page_size
+        end = start + recent_page_size
         recent = [
             {
                 "decision_id": decision["decision_id"],
@@ -52,7 +68,7 @@ class DashboardService:
                 "reviewed": decision["reviewed"],
                 "confirmed_at": decision["confirmed_at"],
             }
-            for decision in decisions[:5]
+            for decision in decisions[start:end]
         ]
         return {
             "dashboard_summary": {
@@ -63,6 +79,12 @@ class DashboardService:
             "kpi_trend": trend,
             "risk_patterns": self._risk_patterns(decisions),
             "recent_decisions": recent,
+            "recent_decisions_meta": {
+                "page": page,
+                "page_size": recent_page_size,
+                "total": total_recent,
+                "total_pages": total_pages,
+            },
             "weekly_summary": self._weekly_summary(len(decisions), high_risk_count),
         }
 

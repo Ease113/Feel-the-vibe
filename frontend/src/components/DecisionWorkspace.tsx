@@ -18,6 +18,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import type { PlanItem, RiskWarning, TransitionCost } from '../api/types';
 import { formatScore } from '../utils/costFormat';
+import InfoTip from './InfoTip';
 import SkuCard from './SkuCard';
 import TransitionSlot from './TransitionSlot';
 
@@ -83,14 +84,17 @@ function WorkspaceChrome({ children }: { children: ReactNode }) {
       <div className="workspace-box">
         <div className="section-hd">
           <div>
-            <h2 className="section-lbl">생산 순서</h2>
+            <h2 className="section-lbl section-lbl--with-info">
+              생산 순서
+              <InfoTip label="생산 순서 상세">
+                낮은 objectiveScore가 유리. 카드 key = plan_item_id.
+              </InfoTip>
+            </h2>
             <p className="section-sub">현재안을 드래그해 순서를 바꿉니다</p>
           </div>
-          <span className="panel-hd-note">낮은 objectiveScore가 유리</span>
         </div>
         <div className="panel-hd panel-hd--sub">
           <span>추천안 vs 현재안</span>
-          <span className="panel-hd-note">카드 key = plan_item_id</span>
         </div>
         <div className="ws-toolbar">
           <span className="ws-toolbar-hint">
@@ -121,7 +125,7 @@ export default function DecisionWorkspace({
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 14 } }),
   );
 
   const itemMap = new Map(planItems.map(i => [i.planItemId, i]));
@@ -206,6 +210,7 @@ export default function DecisionWorkspace({
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
+              autoScroll={false}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
               onDragCancel={handleDragCancel}

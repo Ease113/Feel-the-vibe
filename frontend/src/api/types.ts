@@ -795,6 +795,24 @@ export interface KpiTrendPoint {
   sequence_risk: number;
 }
 
+/** GET /dashboard — 최근 확정 결정 항목 */
+export interface RecentDecisionItem {
+  decision_id: string;
+  plan_id: string;
+  objective_score: number;
+  risk_warning_count: number;
+  reviewed: boolean;
+  confirmed_at: string;
+}
+
+/** GET /dashboard — recent_decisions 페이지네이션 메타 */
+export interface RecentDecisionsMeta {
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
 /** GET /dashboard Response */
 export interface DashboardResponse {
   dashboard_summary: {
@@ -804,6 +822,7 @@ export interface DashboardResponse {
   };
   kpi_trend: KpiTrendPoint[];
   risk_patterns: Array<Record<string, unknown>>;
-  recent_decisions: Array<Record<string, unknown>>;
+  recent_decisions: RecentDecisionItem[];
+  recent_decisions_meta: RecentDecisionsMeta;
   weekly_summary: string;
 }

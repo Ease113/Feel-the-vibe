@@ -48,8 +48,16 @@ export function getPlan(planId: string): Promise<GetPlanData> {
 }
 
 /** KPI 대시보드 (P1, wire format 그대로) */
-export function getDashboard() {
-  return request<DashboardResponse>('/dashboard');
+export function getDashboard(options?: { recentPage?: number; recentPageSize?: number }) {
+  const params = new URLSearchParams();
+  if (options?.recentPage != null) {
+    params.set('recent_page', String(options.recentPage));
+  }
+  if (options?.recentPageSize != null) {
+    params.set('recent_page_size', String(options.recentPageSize));
+  }
+  const query = params.toString();
+  return request<DashboardResponse>(query ? `/dashboard?${query}` : '/dashboard');
 }
 
 /** 추천 순서 생성 */
