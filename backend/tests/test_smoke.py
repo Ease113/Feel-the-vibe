@@ -244,6 +244,44 @@ def test_optimize_high_wash_priority_shifts_objective() -> None:
     assert high["objective_score"] != baseline["objective_score"]
 
 
+def test_gloss_gap_increases_wash_cost_and_complexity() -> None:
+    """광택도 차이가 클수록 wash_cost와 complexity 전파 항이 함께 커져야 한다."""
+    from app.services.cost_predictor import CostPredictor
+
+    predictor = CostPredictor()
+    ctx = {
+        "crew_size": 3,
+        "worker_skill": 0.6,
+        "equipment_condition": 0.7,
+        "days_since_last_clean": 1,
+    }
+
+    def make_item(sku_id: str, gloss: float) -> dict:
+        return {
+            "sku_id": sku_id,
+            "package_size": "4L",
+            "sku": {
+                "sku_id": sku_id,
+                "color_family": "white",
+                "category": "light",
+                "pigment_intensity": 0.5,
+                "gloss_level": gloss,
+                "viscosity": 0.4,
+            },
+        }
+
+    low_gap = predictor.predict_transition(
+        make_item("A", 0.50), make_item("B", 0.55), ctx
+    )
+    high_gap = predictor.predict_transition(
+        make_item("A", 0.20), make_item("B", 0.95), ctx
+    )
+
+    assert high_gap["wash_cost"] > low_gap["wash_cost"]
+    # complexity가 6 차원 전체에 가산되므로 setup_time도 같이 커져야 한다.
+    assert high_gap["setup_time"] >= low_gap["setup_time"]
+
+
 def test_optimize_aggregated_cost_keeps_sequence_risk_display() -> None:
     """sequence_risk는 applied_weights에선 빠지지만 aggregated_cost(display)에는 남아야 한다."""
     response = client.post(
