@@ -14,12 +14,15 @@
 ```bash
 # 백엔드 (venv 활성화 후)
 cd backend
+python -m app.ml.train_xgboost              # 서버 기동 전 1회, 모델 6개 생성. 미실행 시 heuristic fallback
 python -m uvicorn app.main:app --reload --port 8000
 
 # 프론트엔드
 cd frontend
 npm run dev
 ```
+
+XGBoost 학습은 오프라인 배치이며 서버 기동 시 자동 실행되지 않습니다. 모델 파일이 없거나 로드 실패 시 `CostPredictor`가 heuristic으로 자동 fallback 합니다(API 정상, `model_version`만 `heuristic-v1`로 표시). macOS는 `brew install libomp` 사전 요구사항. 자세한 내용은 `docs/learning/xgboost-cost-predictor-walkthrough.md` 참고.
 
 ## 테스트
 

@@ -1,5 +1,72 @@
 # SmartFactoryV2 구현 로그
 
+## 2026-05-20 XGBoost 비용 예측 도입 + 학습/발표 자료
+
+### 배경
+
+`docs/design/p1-backend-sequencing.md`에서 합의된 순서대로 kpi_trend 7차원 확장 다음 P1 작업입니다. 설계 가이드는 `docs/design/xgboost-cost-predictor-adoption.md` (사용자 학습용 가이드)이며, AGENTS.md fallback 정책상 모델이 없거나 로드 실패 시 heuristic으로 자동 떨어지는 구조를 유지합니다. 사용자가 발표에서 직접 설명할 수 있게 코드 워크스루 문서를 별도로 작성했습니다.
+
+선행 정리: working tree의 `backend/app/data/raw/sequence_rules.json`이 다른 repo fetch 과정에서 의도치 않게 10/6/7/8로 회귀해 있었습니다. commit `8b08850`의 35/30/18/32가 정본이라 `git restore`로 복구했습니다 (FastAPI startup이 raw JSON을 만질 수 있는 코드 경로는 없음을 함께 검증).
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|---|---|---|
+| 학습/추론 공통 feature 단일 출처 | `backend/app/ml/features.py` (신설) | `FEATURE_COLUMNS` (12개) 상수 + `build_features_from_history` (학습용 DataFrame), `build_features_for_transition` (추론용 1행 DataFrame). heuristic과 동일한 `*_gap`/`*_changed` 식 사용 |
+| 모델 디렉토리 + 로더 + 모듈 캐시 | `backend/app/ml/model_registry.py` | `get_model_dir`, `get_model_path(dim)`, `load_models(force_reload)` 추가. 6개 차원 모두 존재해야 성공, 부분 fallback 금지. 모듈 캐시는 디렉토리 경로 기준 무효화 |
+| 모델 디렉토리 env 오버라이드 | `backend/app/core/config.py` | `SMARTFACTORY_MODEL_DIR`로 `DATA_MODEL_DIR` 오버라이드. 테스트 격리·CI 분리 목적 |
+| 실제 학습 파이프라인 | `backend/app/ml/train_xgboost.py` (재작성) | `xgb.train(...)` low-level API로 sklearn 의존 회피. 6개 차원 독립 회귀, native JSON 저장, XGBoost vs heuristic MAE 리포트 생성 (`training_report.txt`) |
+| CostPredictor 분기 도입 | `backend/app/services/cost_predictor.py` | `_predict_xgboost` (DMatrix 경로) + `_predict_heuristic` (기존 식 그대로) 분리. 3단 게이트: no model → heuristic / model+예외 → heuristic / model+정상 → xgb. `CostPredictor.heuristic_only()` classmethod로 학습 baseline 비교 인스턴스 노출 |
+| 동적 model_version 전파 | `backend/app/services/optimizer.py`, `backend/app/services/decision_logger.py` | 전역 상수 `MODEL_VERSION` 대신 `self.predictor.model_version`을 응답에 노출. decision_logger도 `confirmed_cost`의 `model_version`을 우선 사용 |
+| 테스트 격리 (XGBoost) | `backend/tests/conftest.py` | `SMARTFACTORY_MODEL_DIR`을 빈 임시 디렉토리로 강제. 학습 산출물이 commit되어 있어도 기존 smoke 테스트는 heuristic 경로로 결정적으로 동작 |
+| XGBoost 회귀 테스트 3건 | `backend/tests/test_xgboost.py` (신설) | (a) fallback when model missing, (b) xgb path when model present (fixture로 미니 booster 학습 후 cleanup), (c) feature shape consistency train vs inference (drift 회귀 방지) |
+| 학습 산출물 commit | `backend/app/data/models/*.json`, `training_report.txt` | 6개 booster JSON + MAE 리포트. **실 시연 직전 별도 PR로 제거 예정** (out-of-scope 메모) |
+| 학습/발표 자료 | `docs/learning/xgboost-cost-predictor-walkthrough.md` (신설) | 11개 섹션: 문제 정의, 데이터, feature engineering, 학습 코드 walkthrough, 저장/로드, 추론 분기/fallback, 평가 비교, 3분 발표 스크립트, 예상 질문 4건, 한계 |
+
+### Fallback 검증
+
+| 시나리오 | 기대 동작 | 확인 |
+|---|---|---|
+| 모델 6개 모두 있음 | `model_version="xgboost-v1"`, xgb 경로 | ✓ (e2e smoke + `test_cost_predictor_uses_xgboost_when_model_present`) |
+| 모델 디렉토리 빈 | `model_version="heuristic-v1"`, heuristic 경로 | ✓ (`SMARTFACTORY_MODEL_DIR=/tmp/empty` 환경 변수 + `test_cost_predictor_falls_back_when_model_missing`) |
+| xgboost import 실패 | warning log + None 반환 → heuristic | ✓ (`load_models` try/except, libomp 미설치 환경에서 검증) |
+| 단일 예측 예외 | 그 호출만 heuristic, 다른 호출은 xgb 유지 | ✓ (`predict_transition` try/except) |
+
+### 검증 결과
+
+| 명령/확인 | 결과 |
+|---|---|
+| `python -m app.ml.train_xgboost` | 6개 모델 학습 + MAE 리포트 생성 (모든 차원 42~82% 개선) |
+| `python -m pytest tests/ -q` | 17 passed (기존 14 + 신규 3), 5 warnings (FastAPI on_event deprecation 잔존) |
+| `ruff check app/ tests/` | All checks passed |
+| `POST /optimize`로 `model_version` 확인 | `"xgboost-v1"` (objective_score 71797.43, 기존 heuristic 76155.71 대비 변화) |
+| `SMARTFACTORY_MODEL_DIR=<empty>` 강제 후 `CostPredictor()` | `model_version == "heuristic-v1"` |
+
+### MAE 비교 (training_report.txt)
+
+| dimension | mae_xgboost | mae_heuristic | 상대 개선 |
+|---|---:|---:|---:|
+| setup_time | 2.54 | 14.06 | 81.9% |
+| labor_cost | 6,556.12 | 29,771.06 | 78.0% |
+| material_loss | 0.25 | 1.38 | 81.6% |
+| wash_cost | 4,581.70 | 18,093.25 | 74.7% |
+| downtime | 1.76 | 4.30 | 59.1% |
+| packaging_time | 1.74 | 3.05 | 42.9% |
+
+### 환경 요구사항
+
+macOS XGBoost 동작에 `libomp`가 필요해 `brew install libomp`로 시스템 전역 설치했습니다 (Apple Silicon: `/opt/homebrew/opt/libomp/lib/libomp.dylib`). 다른 머신에서 학습 재실행 시 동일 셋업 필요.
+
+### 남은 작업 (분리 PR)
+
+- 시연 직전 `backend/app/data/models/*.json`, `training_report.txt` git에서 제거 + `.gitignore`에 `backend/app/data/models/` 추가
+- 런타임 SQLite 부수 파일 (`smartfactory.sqlite3-shm`, `-wal`) `.gitignore` 추가
+- FastAPI `@app.on_event("startup")` → `lifespan` 마이그레이션 (DeprecationWarning 잔존)
+- 프론트엔드 `model_version` 표시 (어느 모델로 산출했는지 운영자에게 노출)
+- `sequence_risk` continuous(1/18/35) → binary(0/1) 정렬 (DB_state §6.4 기준, 2026-05-17부터 보류 중)
+- `Warning.type`, `Warning.commitBlocking` 필드 추가 + `TransitionCost.warnings` 배열화 (DB_state §12)
+- `backend/app/schemas/` 미사용 모델 정리 (`docs/design/schemas-cleanup-followup.md` 합의대로 trigger 기반 deferred 유지)
+
 ## 2026-05-17 초기화
 
 ### 생성/정리한 항목

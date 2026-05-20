@@ -67,7 +67,7 @@ class DecisionLogger:
             "violation_count": len(violation_details),
             "violation_details": json.dumps(violation_details, ensure_ascii=False),
             "decision_memo": request.decision_memo,
-            "model_version": MODEL_VERSION,
+            "model_version": confirmed_cost.get("model_version") or MODEL_VERSION,
             "rule_version": RULE_VERSION,
             "confirmed_at": confirmed_at,
             # Legacy schema compatibility for existing demo DB files.

@@ -40,9 +40,12 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
-python ../scripts/seed_data.py
-uvicorn app.main:app --reload --port 8000
+python ../scripts/seed_data.py        # 1) 합성 데이터 생성
+python -m app.ml.train_xgboost        # 2) XGBoost 모델 6개 학습 (서버 기동 전 1회)
+uvicorn app.main:app --reload --port 8000   # 3) 서버 기동
 ```
+
+`python -m app.ml.train_xgboost`는 `backend/app/data/models/{6 dim}.json` 파일을 생성합니다. 이 파일이 없으면 `CostPredictor`가 자동으로 heuristic으로 fallback 합니다(API는 정상 동작, 단 `model_version`이 `"heuristic-v1"`로 표시됨). XGBoost 경로로 시연하려면 반드시 서버 기동 전에 학습을 1회 실행해야 합니다. macOS에서는 `brew install libomp`가 사전 요구사항입니다.
 
 만약 `uvicorn` 명령이 PATH에 없다면 다음 명령을 사용합니다.
 
@@ -82,6 +85,6 @@ npm run dev
 ## 알려진 제한
 
 - Decision 화면은 아직 Drag & Drop이 아니라 API 연결과 계획 카드 표시만 확인합니다.
-- XGBoost 학습 저장은 다음 P0 backend pass에서 구현합니다.
+- XGBoost 학습은 오프라인 배치입니다(`python -m app.ml.train_xgboost`). 서버 기동 시 자동 학습은 되지 않으며, 모델 파일이 없으면 heuristic으로 자동 fallback 합니다. 자세한 설명·MAE 해석·발표 자료는 [`docs/learning/xgboost-cost-predictor-walkthrough.md`](docs/learning/xgboost-cost-predictor-walkthrough.md) 참고.
 - OR-tools 설치 여부는 확인하지만, demo size 5에서는 brute-force fallback으로 최적 순서를 계산합니다.
 - `npm install` 결과 2건의 moderate npm audit warning이 있습니다. 초기 MVP 동작에는 영향이 없으며, 패키지 업그레이드는 별도 작업으로 검토합니다.

@@ -1,15 +1,43 @@
-"""색상 전환 비용을 예측하는 휴리스틱 비용 예측기."""
+"""색상 전환 비용을 예측하는 비용 예측기.
 
+XGBoost 모델이 로드되면 XGBoost 경로를, 아니면 heuristic 경로를 사용한다.
+입출력 시그니처는 두 경로에서 동일하며, 단일 예측 실패 시에도 heuristic으로
+graceful fallback 한다 (AGENTS.md fallback 정책: "모델 없으면 heuristic").
+"""
+
+from __future__ import annotations
+
+import logging
 from typing import Any
 
-from app.core.config import MODEL_VERSION
+from app.ml import model_registry
+from app.ml.features import build_features_for_transition
+
+_log = logging.getLogger(__name__)
 
 
 class CostPredictor:
-    """Predicts six transition cost dimensions with a safe heuristic fallback."""
+    """Predicts six transition cost dimensions with XGBoost or heuristic fallback."""
 
-    def __init__(self) -> None:
-        self.model_version = MODEL_VERSION
+    HEURISTIC_VERSION = "heuristic-v1"
+    XGBOOST_VERSION = "xgboost-v1"
+
+    def __init__(self, force_heuristic: bool = False) -> None:
+        """모델 가용성에 따라 사용할 분기를 결정한다.
+
+        Args:
+            force_heuristic: True면 모델이 로드 가능해도 heuristic 경로만 사용한다.
+                학습 시 baseline 비교 등 정적 평가용.
+        """
+        self._models = None if force_heuristic else model_registry.load_models()
+        self.model_version = (
+            self.XGBOOST_VERSION if self._models is not None else self.HEURISTIC_VERSION
+        )
+
+    @classmethod
+    def heuristic_only(cls) -> "CostPredictor":
+        """학습/검증 baseline용으로 heuristic 경로만 사용하는 인스턴스를 만든다."""
+        return cls(force_heuristic=True)
 
     def predict_transition(
         self,
@@ -17,12 +45,10 @@ class CostPredictor:
         to_item: dict[str, Any],
         context: dict[str, Any],
     ) -> dict[str, float]:
-        """두 plan item 사이의 6개 비용 차원을 휴리스틱으로 예측한다.
+        """두 plan item 사이의 6개 비용 차원을 예측한다.
 
-        밝기·점도·광택 차이, 포장 변경, 색상군 전환, 메탈릭 여부, 설비 상태,
-        작업자 숙련도를 복합 가중치로 합산해 complexity를 계산한다. 광택 차이는
-        세척 부담의 직접 신호이므로 complexity 전파에 더해 wash_cost에도 별도로
-        가산한다. XGBoost 모델은 아직 미연동이므로 heuristic이 primary path다.
+        모델이 로드되어 있으면 XGBoost로 예측하고, 단일 예측 실패 시 heuristic으로
+        graceful fallback 한다. 두 경로 모두 같은 6개 키를 가진 dict를 반환한다.
 
         Args:
             from_item: 직전 생산 plan item (sku 키 포함).
@@ -32,6 +58,50 @@ class CostPredictor:
         Returns:
             setup_time, labor_cost, material_loss, wash_cost, downtime,
             packaging_time 6개 키를 가진 비용 딕셔너리 (단위: 분/원/L).
+        """
+        if self._models is None:
+            return self._predict_heuristic(from_item, to_item, context)
+        try:
+            return self._predict_xgboost(from_item, to_item, context)
+        except Exception as exc:
+            _log.warning("XGBoost predict failed, falling back to heuristic: %s", exc)
+            return self._predict_heuristic(from_item, to_item, context)
+
+    def _predict_xgboost(
+        self,
+        from_item: dict[str, Any],
+        to_item: dict[str, Any],
+        context: dict[str, Any],
+    ) -> dict[str, float]:
+        """학습된 XGBoost 모델 6개로 차원별 예측을 수행한다.
+
+        feature DataFrame은 `build_features_for_transition`이 학습 시점과
+        동일한 컬럼·순서로 만들어주므로 추가 정렬이 필요 없다. 결과는 음수
+        클램프 후 소수 둘째 자리에서 반올림한다.
+        """
+        import xgboost as xgb
+
+        features_df = build_features_for_transition(from_item, to_item, context)
+        dmatrix = xgb.DMatrix(features_df)
+        out: dict[str, float] = {}
+        assert self._models is not None
+        for dim, booster in self._models.items():
+            value = float(booster.predict(dmatrix)[0])
+            out[dim] = round(max(0.0, value), 2)
+        return out
+
+    def _predict_heuristic(
+        self,
+        from_item: dict[str, Any],
+        to_item: dict[str, Any],
+        context: dict[str, Any],
+    ) -> dict[str, float]:
+        """Deterministic heuristic 경로. fallback이자 baseline 비교용.
+
+        밝기·점도·광택 차이, 포장 변경, 색상군 전환, 메탈릭 여부, 설비 상태,
+        작업자 숙련도를 복합 가중치로 합산해 complexity를 계산한다. 광택 차이는
+        세척 부담의 직접 신호이므로 complexity 전파에 더해 wash_cost에도 별도로
+        가산한다.
         """
         from_sku = from_item["sku"]
         to_sku = to_item["sku"]
