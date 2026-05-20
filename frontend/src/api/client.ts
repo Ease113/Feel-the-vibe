@@ -1,6 +1,7 @@
 import type {
   ComparisonState,
   DashboardResponse,
+  DecisionDetailRaw,
   DecisionsResponse,
   ExplainResponse,
   GetPlanData,
@@ -20,6 +21,17 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000';
 
+/** API 요청 실패 시 HTTP status를 함께 전달한다. */
+export class ApiRequestError extends Error {
+  readonly status: number;
+
+  constructor(status: number, path: string) {
+    super(`API ${path} failed with ${status}`);
+    this.name = 'ApiRequestError';
+    this.status = status;
+  }
+}
+
 /**
  * 공통 fetch 래퍼. Content-Type을 JSON으로 고정하고 응답 실패 시 Error를 throw한다.
  */
@@ -32,7 +44,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   if (!response.ok) {
-    throw new Error(`API ${path} failed with ${response.status}`);
+    throw new ApiRequestError(response.status, path);
   }
   return response.json() as Promise<T>;
 }
@@ -97,6 +109,19 @@ export function postDecisions(input: {
     method: 'POST',
     body: JSON.stringify(toDecisionsRequest(input)),
   });
+}
+
+/** 단건 의사결정 상세 조회 */
+export function getDecision(decisionId: string): Promise<DecisionDetailRaw> {
+  return request<DecisionDetailRaw>(`/decisions/${decisionId}`);
+}
+
+/** 검토 완료 플래그 갱신 */
+export function patchDecisionReviewed(decisionId: string, reviewed: boolean) {
+  return request<{ decision_id: string; reviewed: boolean }>(
+    `/decisions/${decisionId}/reviewed`,
+    { method: 'PATCH', body: JSON.stringify({ reviewed }) },
+  );
 }
 
 /** 설명 생성 (P1) */

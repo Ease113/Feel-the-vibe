@@ -1,8 +1,9 @@
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { getDashboard } from '../api/client';
 import type { DashboardResponse } from '../api/types';
 import DashboardCharts from '../components/DashboardCharts';
+import DecisionDetailView from '../components/DecisionDetailView';
 import KpiHeatmap from '../components/KpiHeatmap';
 import KpiRadarChart from '../components/KpiRadarChart';
 import SeverityBadge from '../components/SeverityBadge';
@@ -30,6 +31,25 @@ function fmtDatetime(iso: string) {
   }
 }
 
+interface SummaryKpiCardProps {
+  label: string;
+  value: ReactNode;
+  sub: string;
+  warn?: boolean;
+}
+
+function SummaryKpiCard({ label, value, sub, warn }: SummaryKpiCardProps) {
+  return (
+    <div className={`dash-kpi-card${warn ? ' dash-kpi-card--warn' : ''}`}>
+      <div className="dash-kpi-card-head">{label}</div>
+      <div className="dash-kpi-card-body">
+        <div className="dash-kpi-value">{value}</div>
+        <div className="dash-kpi-sub">{sub}</div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * KPI 대시보드 페이지.
  *
@@ -43,6 +63,8 @@ export default function DashboardPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [heatmapOpen, setHeatmapOpen] = useState(false);
   const [expandedRuleId, setExpandedRuleId] = useState<string | null>(null);
+  const [openDecisionId, setOpenDecisionId] = useState<string | null>(null);
+  const [recentLoading, setRecentLoading] = useState(false);
 
   const loadDashboard = useCallback((page: number) => {
     return getDashboard({ recentPage: page, recentPageSize: RECENT_PAGE_SIZE })
@@ -71,8 +93,36 @@ export default function DashboardPage() {
     setExpandedRuleId(prev => (prev === ruleId ? null : ruleId));
   };
 
+  const addToCompare = (id: string) => {
+    setSelectedIds(prev => {
+      if (prev.includes(id)) return prev;
+      if (prev.length >= MAX_SELECTED) return prev;
+      return [...prev, id];
+    });
+  };
+
+  const openDecisionDetail = (id: string) => {
+    addToCompare(id);
+    setOpenDecisionId(id);
+  };
+
   const goRecentPage = (page: number) => {
-    loadDashboard(page).catch(() => setError(true));
+    setRecentLoading(true);
+    loadDashboard(page)
+      .catch(() => setError(true))
+      .finally(() => setRecentLoading(false));
+  };
+
+  const handleReviewedChange = (id: string, reviewed: boolean) => {
+    setDashboard(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        recent_decisions: prev.recent_decisions.map(d =>
+          d.decision_id === id ? { ...d, reviewed } : d,
+        ),
+      };
+    });
   };
 
   if (error) {
@@ -111,33 +161,34 @@ export default function DashboardPage() {
   const showRecentPager = recentMeta.total > 0;
 
   return (
+    <>
     <div className="dash-page">
       <header className="dash-header">
         <div className="dash-plan">SmartFactory · LINE-01</div>
         <h1 className="dash-title">KPI 대시보드</h1>
       </header>
 
-      {/* 요약 지표 3개 */}
       <div className="dash-summary">
-        <div className="dash-kpi">
-          <div className="dash-kpi-label">확정 결정 건수</div>
-          <div className="dash-kpi-value">{dashboard_summary.decision_count.toLocaleString()}</div>
-          <div className="dash-kpi-sub">POST /decisions 저장 기준</div>
-        </div>
-        <div className="dash-kpi">
-          <div className="dash-kpi-label">평균 목적 점수</div>
-          <div className="dash-kpi-value">
-            {dashboard_summary.average_objective_score > 0
+        <SummaryKpiCard
+          label="확정 결정 건수"
+          value={dashboard_summary.decision_count.toLocaleString()}
+          sub="POST /decisions 저장 기준"
+        />
+        <SummaryKpiCard
+          label="평균 목적 점수"
+          value={
+            dashboard_summary.average_objective_score > 0
               ? fmtScore(dashboard_summary.average_objective_score)
-              : '—'}
-          </div>
-          <div className="dash-kpi-sub">낮을수록 유리</div>
-        </div>
-        <div className={`dash-kpi${dashboard_summary.high_risk_transition_count > 0 ? ' dash-kpi--warn' : ''}`}>
-          <div className="dash-kpi-label">고위험 전환 누적</div>
-          <div className="dash-kpi-value">{dashboard_summary.high_risk_transition_count.toLocaleString()}</div>
-          <div className="dash-kpi-sub">HIGH severity 기준</div>
-        </div>
+              : '—'
+          }
+          sub="낮을수록 유리"
+        />
+        <SummaryKpiCard
+          label="고위험 전환 누적"
+          value={dashboard_summary.high_risk_transition_count.toLocaleString()}
+          sub="HIGH severity 기준"
+          warn={dashboard_summary.high_risk_transition_count > 0}
+        />
       </div>
 
       <div className="dash-body">
@@ -145,8 +196,8 @@ export default function DashboardPage() {
         <div className="dash-main">
 
           {/* BarChart — 판단의 중심 */}
-          <div>
-            <div className="dash-section-title">7차원 비용 추이</div>
+          <div className="dash-card">
+            <div className="dash-card-head">7차원 비용 추이</div>
             <DashboardCharts
               data={kpi_trend}
               selectedIds={selectedIds}
@@ -172,7 +223,7 @@ export default function DashboardPage() {
                     <span className="compare-flow-preview" aria-hidden="true" />
                   </span>
                   <span className="compare-flow-sub">
-                    히트맵에서 결정 시점을 고르면 선택 결정 비교로 이어집니다.
+                    히트맵 또는 아래 최근 확정 결정에서 고르면 비교 선택에 반영됩니다.
                   </span>
                 </span>
               </span>
@@ -205,15 +256,18 @@ export default function DashboardPage() {
           </div>
 
           {/* 최근 확정 결정 */}
-          <div>
-            <div className="dash-section-head">
-              <div className="dash-section-title dash-section-title--inline">최근 확정 결정</div>
+          <div
+            className={`recent-box${recentLoading ? ' recent-box--loading' : ''}`}
+            aria-busy={recentLoading}
+          >
+            <div className="dash-card-head">
+              <span>최근 확정 결정</span>
               {showRecentPager && (
                 <div className="recent-pager">
                   <button
                     type="button"
                     className="recent-pager-btn"
-                    disabled={recentPage <= 1}
+                    disabled={recentLoading || recentPage <= 1}
                     onClick={() => goRecentPage(recentPage - 1)}
                     aria-label="이전 페이지"
                   >
@@ -226,7 +280,7 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     className="recent-pager-btn"
-                    disabled={recentPage >= recentMeta.total_pages}
+                    disabled={recentLoading || recentPage >= recentMeta.total_pages}
                     onClick={() => goRecentPage(recentPage + 1)}
                     aria-label="다음 페이지"
                   >
@@ -235,39 +289,70 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
-            <div className="recent-box">
-              {recents.length === 0 ? (
-                <div className="recent-empty">저장된 확정 결정이 없습니다.</div>
-              ) : (
-                <>
-                  <div className="recent-head">
-                    <span>Decision ID</span>
-                    <span>목적 점수</span>
-                    <span>위험</span>
-                    <span>확정 시각</span>
-                  </div>
-                  {recents.map(d => (
-                    <div key={d.decision_id} className="recent-row">
-                      <span className="recent-id">{d.decision_id.slice(-10)}</span>
-                      <span className="recent-score">{fmtScore(d.objective_score)}</span>
-                      <span className={d.risk_warning_count > 0 ? 'recent-risk' : ''}>
-                        {d.risk_warning_count > 0 ? `${d.risk_warning_count}건` : '—'}
-                      </span>
-                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                        {fmtDatetime(d.confirmed_at)}
-                      </span>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
+            {recentLoading && (
+              <div className="recent-loading" role="status">목록 불러오는 중…</div>
+            )}
+            {recents.length === 0 ? (
+              <div className="recent-empty">저장된 확정 결정이 없습니다.</div>
+            ) : (
+              <table className="recent-table">
+                  <caption className="sr-only">최근 확정 결정 목록. 행을 선택하면 상세를 열고 비교 선택에 추가됩니다.</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">결정 ID</th>
+                      <th scope="col">계획</th>
+                      <th scope="col">목적 점수</th>
+                      <th scope="col">룰 경고</th>
+                      <th scope="col">검토</th>
+                      <th scope="col">확정 시각</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recents.map(d => {
+                      const isSelected = selectedIds.includes(d.decision_id);
+                      return (
+                        <tr
+                          key={d.decision_id}
+                          className={`recent-row${isSelected ? ' recent-row--selected' : ''}`}
+                          tabIndex={0}
+                          aria-selected={isSelected}
+                          onClick={() => openDecisionDetail(d.decision_id)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              openDecisionDetail(d.decision_id);
+                            }
+                          }}
+                        >
+                          <td className="recent-cell-id" title={d.decision_id}>
+                            {d.decision_id}
+                          </td>
+                          <td className="recent-plan" title={d.plan_id}>{d.plan_id}</td>
+                          <td className="recent-score">{fmtScore(d.objective_score)}</td>
+                          <td className={d.risk_warning_count > 0 ? 'recent-risk' : ''}>
+                            {d.risk_warning_count > 0 ? `${d.risk_warning_count}건` : '—'}
+                          </td>
+                          <td className="recent-reviewed">
+                            <span
+                              className={d.reviewed ? 'reviewed-dot' : 'unreviewed-dot'}
+                              aria-hidden
+                            />
+                            <span>{d.reviewed ? '완료' : '대기'}</span>
+                          </td>
+                          <td className="recent-datetime">{fmtDatetime(d.confirmed_at)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+              </table>
+            )}
           </div>
         </div>
 
         {/* 오른쪽: 위험 패턴 + 주간 요약 */}
         <div className="dash-side">
           <div className="pattern-card">
-            <div className="pattern-head">반복 위험 패턴</div>
+            <div className="dash-card-head">반복 위험 패턴</div>
             {patterns.length === 0 ? (
               <p className="pattern-empty">감지된 위험 패턴이 없습니다.</p>
             ) : (
@@ -333,5 +418,14 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
+
+    {openDecisionId && (
+      <DecisionDetailView
+        decisionId={openDecisionId}
+        onClose={() => setOpenDecisionId(null)}
+        onReviewedChange={handleReviewedChange}
+      />
+    )}
+    </>
   );
 }

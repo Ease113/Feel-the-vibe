@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { ComparisonDiff, ComparisonState } from '../api/types';
 
 interface Props {
@@ -31,11 +32,26 @@ function fmtDiffRate(rate: number): { text: string; cls: string } {
   return { text: `= ${pct}%`, cls: 'cp-val--same' };
 }
 
+function transitionKey(d: ComparisonDiff): string {
+  return `${d.fromPlanItemId}->${d.toPlanItemId}`;
+}
+
+function TransitionList({ items }: { items: ComparisonDiff[] }) {
+  return (
+    <ul className="cp-diff-list">
+      {items.map(d => (
+        <li key={transitionKey(d)} className="cp-diff-item">
+          {d.fromSkuName} → {d.toSkuName}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /**
  * 추천안 vs 현재안 비교 패널 (DB_state §14).
  *
- * 표시 순서: comparisonSummary → comparisonDiffs(순서 전환 추가/제거) → comparisonState 4행.
- * 점수 비교(▲/▼%)는 KpiSummaryBar 히어로에만 표시, 이 패널에서는 절댓값 diff/rate만 보조 표시.
+ * 표시 순서: comparisonSummary → 전환 diff 2그룹 → comparisonState 4행(차이·차이율 ▲/▼).
  */
 export default function ComparisonPanel({
   comparisonSummary,
@@ -43,6 +59,16 @@ export default function ComparisonPanel({
   comparisonDiffs,
   isPredicting,
 }: Props) {
+  const { added, removed } = useMemo(() => {
+    const a: ComparisonDiff[] = [];
+    const r: ComparisonDiff[] = [];
+    for (const d of comparisonDiffs) {
+      if (d.type === 'added') a.push(d);
+      else r.push(d);
+    }
+    return { added: a, removed: r };
+  }, [comparisonDiffs]);
+
   const hasData = comparisonSummary !== null || comparisonState !== null;
 
   if (!hasData && !isPredicting) {
@@ -70,18 +96,23 @@ export default function ComparisonPanel({
           <p className="cp-loading">평가 중…</p>
         )}
 
-        {comparisonDiffs.length > 0 && (
-          <div className="cp-diffs">
-            {comparisonDiffs.map(d => (
-              <div
-                key={`${d.fromPlanItemId}->${d.toPlanItemId}`}
-                className={`cp-diff cp-diff--${d.type}`}
-              >
-                <span className="cp-diff-badge">{d.type === 'added' ? '+' : '−'}</span>
-                {d.fromSkuName} → {d.toSkuName}
-              </div>
-            ))}
-          </div>
+        {added.length > 0 && (
+          <section className="cp-diff-group" aria-label="현재 순서에서 새로 생긴 전환">
+            <h4 className="cp-diff-group-hd">현재 순서에서 새로 생긴 전환</h4>
+            <TransitionList items={added} />
+          </section>
+        )}
+
+        {removed.length > 0 && (
+          <details className="cp-diff-group cp-diff-group--collapsible">
+            <summary className="cp-diff-group-hd cp-diff-group-hd--summary">
+              <span className="cp-diff-summary-label">
+                추천 순서에서 사라진 전환
+                <span className="cp-diff-group-count">{removed.length}</span>
+              </span>
+            </summary>
+            <TransitionList items={removed} />
+          </details>
         )}
 
         {comparisonState && (
