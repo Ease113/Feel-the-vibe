@@ -1,0 +1,7 @@
+dimension,mae_xgboost,mae_heuristic,relative_improvement
+setup_time,2.54,14.06,81.9%
+labor_cost,6556.12,29771.06,78.0%
+material_loss,0.25,1.38,81.6%
+wash_cost,4581.70,18093.25,74.7%
+downtime,1.76,4.30,59.1%
+packaging_time,1.74,3.05,42.9%

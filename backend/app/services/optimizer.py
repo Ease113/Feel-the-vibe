@@ -6,7 +6,7 @@ from typing import Any
 
 _log = logging.getLogger(__name__)
 
-from app.core.config import MODEL_VERSION, RULE_VERSION
+from app.core.config import RULE_VERSION
 from app.services.cost_predictor import CostPredictor
 from app.services.data_loader import DataLoader
 from app.services.priority import (
@@ -105,7 +105,7 @@ class SequenceEvaluator:
             "risk_warnings": risk_warnings,
             "priority_profile": normalized_priority,
             "applied_weights": applied_weights,
-            "model_version": MODEL_VERSION,
+            "model_version": self.predictor.model_version,
             "rule_version": RULE_VERSION,
         }
 
