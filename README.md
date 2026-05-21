@@ -40,9 +40,10 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
-python ../scripts/seed_data.py        # 1) 합성 데이터 생성
-python -m app.ml.train_xgboost        # 2) XGBoost 모델 6개 학습 (서버 기동 전 1회)
-uvicorn app.main:app --reload --port 8000   # 3) 서버 기동
+cp .env.example .env                  # 1) 환경변수 파일 생성 (아래 "환경변수 설정" 참고)
+python ../scripts/seed_data.py        # 2) 합성 데이터 생성
+python -m app.ml.train_xgboost        # 3) XGBoost 모델 6개 학습 (서버 기동 전 1회)
+uvicorn app.main:app --reload --port 8000   # 4) 서버 기동
 ```
 
 `python -m app.ml.train_xgboost`는 `backend/app/data/models/{6 dim}.json` 파일을 생성합니다. 이 파일이 없으면 `CostPredictor`가 자동으로 heuristic으로 fallback 합니다(API는 정상 동작, 단 `model_version`이 `"heuristic-v1"`로 표시됨). XGBoost 경로로 시연하려면 반드시 서버 기동 전에 학습을 1회 실행해야 합니다. macOS에서는 `brew install libomp`가 사전 요구사항입니다.
@@ -58,6 +59,55 @@ python -m uvicorn app.main:app --reload --port 8000
 ```bash
 curl http://localhost:8000/health
 ```
+
+## 환경변수 설정
+
+본 프로젝트에서 실제로 편집해야 하는 환경 파일은 **`backend/.env` 하나**입니다. `.env`는 `.gitignore`에 포함되어 있어 git pull로 따라오지 않으므로, 새 PC에서는 `.env.example`을 복사해 키를 채워 넣습니다.
+
+```bash
+cd backend
+cp .env.example .env
+# 편집기로 .env를 열어 SMARTFACTORY_LLM_API_KEY 값을 채웁니다.
+```
+
+`.env` 항목과 의미는 다음과 같습니다.
+
+| 변수 | 기본값 | 미설정 시 동작 |
+|---|---|---|
+| `SMARTFACTORY_LLM_API_KEY` | 없음 | Gemini 단계 skip → 로컬 `claude` CLI 시도 → template fallback |
+| `SMARTFACTORY_LLM_MODEL` | `gemini-flash-latest` | Google이 관리하는 최신 flash alias 사용 |
+| `SMARTFACTORY_LLM_TIMEOUT_SEC` | `10` | Gemini API HTTPS timeout |
+| `SMARTFACTORY_LLM_CLI_TIMEOUT_SEC` | `15` | `claude` CLI subprocess timeout |
+
+LLM 분기는 항상 `Gemini API → claude CLI → template fallback` 순으로 graceful degradation하므로, `.env`를 설정하지 않아도 API 전체는 정상 동작합니다(응답의 `generation_mode` 필드만 `"template"` 또는 `"cli"`로 표시됨).
+
+### `.env` 로드 동작 확인
+
+다음 한 줄로 `.env`가 잘 로드되었는지 빠르게 확인할 수 있습니다.
+
+```bash
+cd backend && source .venv/bin/activate
+python -c "from app.core.config import LLM_API_KEY, LLM_MODEL; print('key set:', bool(LLM_API_KEY), '| model:', LLM_MODEL)"
+```
+
+기대 출력: `key set: True | model: gemini-flash-latest`
+
+서버 기동 후 Swagger(`http://localhost:8000/docs`)에서 `POST /explain`을 호출했을 때 응답의 `generation_mode == "gemini"`이면 끝까지 정상 동작입니다. `.env`를 수정한 경우 uvicorn 프로세스를 재시작해야 새 값이 반영됩니다.
+
+### 보안 주의
+
+- `.env`에 저장한 API key는 절대 commit/push 하지 않습니다. `.gitignore`로 제외되어 있지만, 실수로 다른 파일에 평문이 들어가지 않도록 주의해 주세요.
+- 키가 채팅·이슈·PR 본문 등에 노출된 적이 있다면 시연 후 즉시 [Google Cloud Console](https://console.cloud.google.com/apis/credentials)에서 rotate를 권장합니다.
+
+### 로컬 CLI 경로 활용 (API key 없이 시연)
+
+API key 없이 시연하고 싶다면 `claude` CLI를 PATH에 두면 자동 감지됩니다.
+
+```bash
+which claude   # /usr/local/bin/claude 같은 경로가 나오면 됨
+```
+
+`.env`의 `SMARTFACTORY_LLM_API_KEY`가 비어 있어도 `claude`가 감지되면 LLMClient가 `claude --print` stdin 호출로 graceful degradation합니다.
 
 ## 프론트엔드 실행
 

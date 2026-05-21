@@ -1,5 +1,72 @@
 # SmartFactoryV2 구현 로그
 
+## 2026-05-21 LLM 분기 + 주간 보고서 백엔드 통합
+
+### 배경
+
+`docs/design/mvp-completion-plan.md` 잔여 P1 작업 중 LLM 호출지점 3곳(`/explain`, 주간 요약, 주간 보고서)이 모두 template-only로 남아 있어 시연 완성도가 낮았습니다. 설계 가이드는 `docs/design/llm-integration-and-weekly-report.md`. 핵심 원칙은 (a) LLM 자동 호출 금지(roadmap §13), (b) provider chain Gemini → claude CLI → template, (c) 주간 기간은 in-progress ISO 주(월~기준일), (d) `weekly_report_cache` UPSERT로 한 줄 요약과 본문 3면 누적 저장입니다.
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|---|---|---|
+| LLM provider chain | `backend/app/services/llm_client.py` (신설) | `LLMClient.generate(prompt_id, payload) -> LLMResult` 단일 진입점. Gemini SDK → `claude --print` CLI → template fallback. timeout·예외·JSON 파싱·schema 검증 일괄 처리, caller에 예외 미전파. |
+| prompt 레지스트리 | `backend/app/services/prompts.py` (신설) | `PROMPT_REGISTRY`에 `explain-v1`/`weekly-summary-v1`/`weekly-report-v1` 3건 등록. 각 항목은 (system_prompt, user_prompt_fn, output_schema, template_fallback_fn, prompt_version)로 구성. |
+| 주간 보고서 서비스 | `backend/app/services/weekly_report_service.py` (신설) | `iso_week_in_progress(date)` (월요일~기준일), `_kpi_snapshot`/`_cost_summary`/`_risk_summary` aggregation, decisions 0건 시 LLM 호출 skip + template으로 cache row 채움. |
+| cache 저장소 | `backend/app/db/weekly_report_repo.py` (신설) | `upsert_summary`(`llm_summary` + 본문 보존), `upsert_full_report`(본문 3컬럼 갱신), `get_for_period`, `get_latest`. SQLite single-writer 가정의 SELECT-then-INSERT/UPDATE UPSERT. |
+| 라우터 | `backend/app/api/routes_reports.py` (신설) | `POST /reports/weekly-summary`, `POST /reports/weekly` 두 endpoint. request body 없음 — 서버가 오늘 기준 in-progress 주 자동 계산. |
+| 응답 schema | `backend/app/schemas/reports.py` (신설) | `WeeklySummaryResponse`, `WeeklyReportResponse`, `WeeklyReportPayload` Pydantic 모델. `generation_mode`는 `Literal["gemini", "cli", "template"]`. |
+| `/explain` LLM 분기 | `backend/app/services/explanation_service.py` | template-only 로직을 `LLMClient.generate("explain-v1", payload)`로 교체. fallback 함수는 `prompts.py`에 이관. 응답에 `model_version`/`prompt_version`/`generation_mode` 추가. |
+| `/explain` 응답 schema | `backend/app/schemas/sequence.py`, `backend/app/api/routes_explain.py` | `ExplainResponse` Pydantic 모델 추가, 라우터에 `response_model` 지정. |
+| 대시보드 cache 노출 | `backend/app/services/dashboard_service.py` | 하드코딩된 `_weekly_summary` 제거 → `weekly_report_repo.get_for_period`로 cache 조회. cache 없으면 `weekly_summary`/`weekly_report` 둘 다 `null`. LLM 호출 코드 0회. |
+| env var · 설정 | `backend/app/core/config.py`, `backend/.env.example` | `SMARTFACTORY_LLM_API_KEY`/`SMARTFACTORY_LLM_MODEL`/`SMARTFACTORY_LLM_TIMEOUT_SEC`/`SMARTFACTORY_LLM_CLI_TIMEOUT_SEC` 정의. `.env.example`은 placeholder만. |
+| SQLite legacy 복구 | `backend/app/db/schema.sql`, `backend/app/db/sqlite.py` | `generation_mode` CHECK 제약을 `(gemini, cli, template)`으로 갱신. 구 enum(`live`/`cached`/`template`) 테이블이 잔존하면 `_recreate_weekly_report_cache_if_legacy`가 DROP + WARNING 후 재생성. |
+| 라우터 등록 | `backend/app/main.py` | `routes_reports` include. |
+| 의존성 | `backend/pyproject.toml` | `google-genai>=0.3` 추가. SDK 호출 + JSON 응답 파싱은 `LLMClient`가 책임. |
+| 보안/gitignore | `.gitignore` | `.env`, `backend/.env`, sqlite WAL/SHM 파일 제외. |
+| 테스트 격리 | `backend/tests/conftest.py` | `SMARTFACTORY_LLM_API_KEY` env를 강제 unset해 테스트가 외부 네트워크/CLI에 의존하지 않도록 격리. |
+| LLM client 테스트 | `backend/tests/test_llm_client.py` (신설) | (a) template-only, (b) Gemini mock 성공, (c) Gemini 실패 → fallback, (d) CLI code-fence 추출, (e) CLI 실패 → fallback, (f) Gemini schema 위반 → fallback, (g) 미등록 prompt_id KeyError. |
+| 주간 보고서 테스트 | `backend/tests/test_weekly_report.py` (신설) | iso_week 월/수/일, 0건 케이스 template + cache 적재, summary→weekly 순서로 UPSERT시 본문 누적, POST endpoint smoke 2건, /dashboard cache 노출/null 처리, /dashboard LLM 자동 호출 없음 검증(`LLMClient.generate` mock call_count == 0). |
+| 문서 | `docs/api_contract.md`, `docs/source/DB_state_v1.3.md`, `docs/design/llm-integration-and-weekly-report.md` (신설) | `/dashboard`에 `weekly_report` 필드 추가, `/explain`에 provenance 3 필드 추가, `POST /reports/weekly-summary`·`POST /reports/weekly` 신규 명세, `generation_mode` enum을 `(gemini, cli, template)`로 갱신. |
+
+### Fallback 검증
+
+| 시나리오 | 기대 동작 | 확인 |
+|---|---|---|
+| `SMARTFACTORY_LLM_API_KEY` 미설정 + `claude` CLI 미감지 | template fallback, `generation_mode == "template"` | ✓ `test_template_fallback_when_no_provider` |
+| Gemini SDK 정상 JSON 응답 | `generation_mode == "gemini"`, model_version은 모델명 | ✓ `test_gemini_path_success` |
+| Gemini 예외 발생 | WARNING 로그 + CLI → template으로 graceful degradation | ✓ `test_gemini_path_failure_falls_back_to_template` |
+| Gemini가 schema 미준수 JSON 반환 | WARNING + template으로 fallback | ✓ `test_gemini_schema_violation_falls_back` |
+| `claude` CLI가 markdown fence로 감싼 JSON 반환 | code fence 추출 후 JSON 파싱 성공 | ✓ `test_cli_path_with_code_fence` |
+| `claude` CLI exit non-zero | WARNING + template | ✓ `test_cli_failure_falls_back_to_template` |
+| 주간 decisions 0건 | LLM 호출 skip, template으로 cache row 채움 | ✓ `test_generate_summary_zero_decisions_uses_template_and_writes_cache` |
+| 같은 주에 summary → weekly 순으로 호출 | row 1개 UPSERT, 본문 3컬럼 누적 | ✓ `test_upsert_preserves_other_columns_when_summary_then_full_report` |
+| `/dashboard` 진입 | LLMClient.generate 호출 0회 | ✓ `test_dashboard_does_not_call_llm` |
+
+### 검증 결과
+
+| 명령/확인 | 결과 |
+|---|---|
+| `pip install -e .` | 성공 (`google-genai 2.5.0` 외 의존성 8개 신규 설치) |
+| `ruff check app/ tests/` | All checks passed |
+| `python -m pytest tests/ -q` | 35 passed (기존 17 + 신규 18), 5 warnings (FastAPI `on_event` deprecation 잔존 — cleanup PR 별도) |
+| `POST /reports/weekly-summary` (decisions 0건) | 200 + `generation_mode == "template"`, cache row 1건 적재 |
+| `POST /reports/weekly` (decisions 2건) | 200 + summary/key_findings/recommendations 3면, cache UPSERT 정상 |
+| `GET /dashboard` (cache 없음) | `weekly_summary == null`, `weekly_report == null`, LLM 호출 0회 |
+| `GET /dashboard` (cache 있음) | cache의 `llm_summary` 및 본문이 응답에 반영 |
+
+### 보안 / 운영
+
+사용자가 채팅으로 평문 전달한 Gemini API key는 본 PR 코드·문서·로그 어디에도 기록하지 않았습니다. `.env` 로컬 사용으로만 다루며 `.gitignore`에 포함되어 있습니다. **시연 종료 후 즉시 key rotate를 권장합니다**.
+
+### 남은 작업 (분리 PR)
+
+- 프론트엔드: `weekly_summary` 타입을 `string`에서 `string | null`로 변경, 명시 호출 버튼 3개(AI 요약/주간 요약/주간 보고서) UI 구현, `/dashboard.weekly_report` 본문 렌더 (별도 design doc 선행)
+- 프론트엔드: SkuCard 속성 표시 (P1 #8, 별도 hand-off)
+- 프론트엔드: Dashboard 7차원 차트 보강 (P1 #9, 별도 hand-off)
+- 백엔드 chore: `@app.on_event("startup")` → `lifespan` 마이그레이션, 학습 모델 파일 `.gitignore` 정책 재정리
+- `/optimize`에 LLM 도입 여부: 별도 ADR (현재는 명시적 Out of Scope)
+
 ## 2026-05-20 XGBoost 비용 예측 도입 + 학습/발표 자료
 
 ### 배경

@@ -382,7 +382,7 @@ MVP에서는 `hard`, `soft`, `warn` 같은 복수 constraint type을 운영하�
 | `prompt_version` | text | - | 권장 | LLM 프롬프트 버전 | `weekly-prompt-v1` |
 | `model_version` | text | - | 권장 | 비용 예측 모델 버전 | `xgb-cost-2026.05.v1` |
 | `rule_version` | text | - | 권장 | 룰 버전 | `rules-2026.05.v1` |
-| `generation_mode` | enum | - | N | 생성 방식 | `live`, `cached`, `template` |
+| `generation_mode` | enum | - | N | 생성 방식 — LLM provider chain의 어느 단계가 결과를 만들었는지 가시화 | `gemini`, `cli`, `template` |
 | `generated_at` | datetime/text | - | Y | 생성 시각 | `2026-05-15T17:00:00+09:00` |
 
 P0 필수 테이블은 아니며, KPI 대시보드 이후 주간 요약 시연을 위한 P1 캐시입니다.
