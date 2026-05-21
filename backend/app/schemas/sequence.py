@@ -5,12 +5,24 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
+class OperatingContextOverride(BaseModel):
+    """프론트엔드 운영 컨텍스트 dropdown 선택값. 누락 필드는 plan_context 기본값을 사용한다.
+
+    docs/design/operating-context-cost-multiplier.md 의 Decision 1·2 참고.
+    shift, crew_size만 사용자 조작 대상이며 다른 컨텍스트 필드는 서버 측 값을 유지한다.
+    """
+
+    shift: Literal["day", "night"] | None = None
+    crew_size: int | None = Field(default=None, ge=1, le=6)
+
+
 class OptimizeRequest(BaseModel):
     """POST /optimize 요청 바디: 최적화할 plan_item_id 목록과 우선순위 프로파일."""
 
     plan_id: str
     plan_item_ids: list[str]
     priority_profile: dict[str, Any] = Field(default_factory=dict)
+    operating_context: OperatingContextOverride | None = None
 
 
 class PredictRequest(BaseModel):
@@ -20,6 +32,7 @@ class PredictRequest(BaseModel):
     recommended_sequence: list[str]
     current_sequence: list[str]
     priority_profile: dict[str, Any] = Field(default_factory=dict)
+    operating_context: OperatingContextOverride | None = None
 
 
 class ValidateRequest(BaseModel):

@@ -4,6 +4,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.schemas.sequence import OperatingContextOverride
+
 
 class DecisionCreateRequest(BaseModel):
     """확정 순서를 저장할 때 프론트엔드가 전송하는 요청 바디."""
@@ -17,6 +19,7 @@ class DecisionCreateRequest(BaseModel):
     comparison_state: dict[str, Any] = Field(default_factory=dict)
     violation_details: list[dict[str, Any]] = Field(default_factory=list)
     decision_memo: str | None = None
+    operating_context: OperatingContextOverride | None = None
 
 
 class ReviewedUpdateRequest(BaseModel):
