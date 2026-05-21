@@ -64,6 +64,7 @@ export default function DecisionPage() {
     decisionId,
     committedAt,
     llmExplanation,
+    explanationGenerationMode,
     isExplaining,
   } = state;
 
@@ -169,6 +170,7 @@ export default function DecisionPage() {
           />
           <ExplainSection
             llmExplanation={llmExplanation}
+            explanationGenerationMode={explanationGenerationMode}
             isExplaining={isExplaining}
             comparisonState={comparisonState}
             onExplain={handleExplain}

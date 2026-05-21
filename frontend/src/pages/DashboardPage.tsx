@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronUp } from 'lucide-react';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { getDashboard } from '../api/client';
 import type { DashboardResponse } from '../api/types';
@@ -7,6 +7,7 @@ import DecisionDetailView from '../components/DecisionDetailView';
 import KpiHeatmap from '../components/KpiHeatmap';
 import KpiRadarChart from '../components/KpiRadarChart';
 import SeverityBadge from '../components/SeverityBadge';
+import WeeklyReportPanel from '../components/WeeklyReportPanel';
 import { getSequenceRuleCopy } from '../utils/sequenceRuleCopy';
 
 const RECENT_PAGE_SIZE = 5;
@@ -148,6 +149,7 @@ export default function DashboardPage() {
     recent_decisions,
     recent_decisions_meta,
     weekly_summary,
+    weekly_report,
   } = dashboard;
   const patterns = risk_patterns as unknown as RiskPattern[];
   const recents = recent_decisions;
@@ -220,7 +222,6 @@ export default function DashboardPage() {
                 <span>
                   <span className="compare-flow-title">
                     히스토리 비교 선택
-                    <span className="compare-flow-preview" aria-hidden="true" />
                   </span>
                   <span className="compare-flow-sub">
                     히트맵 또는 아래 최근 확정 결정에서 고르면 비교 선택에 반영됩니다.
@@ -261,7 +262,10 @@ export default function DashboardPage() {
             aria-busy={recentLoading}
           >
             <div className="dash-card-head">
-              <span>최근 확정 결정</span>
+              <div className="recent-head-left">
+                <span>최근 확정 결정</span>
+                <span className="recent-head-hint">행 클릭 시 우측 패널에서 상세</span>
+              </div>
               {showRecentPager && (
                 <div className="recent-pager">
                   <button
@@ -296,7 +300,7 @@ export default function DashboardPage() {
               <div className="recent-empty">저장된 확정 결정이 없습니다.</div>
             ) : (
               <table className="recent-table">
-                  <caption className="sr-only">최근 확정 결정 목록. 행을 선택하면 상세를 열고 비교 선택에 추가됩니다.</caption>
+                  <caption className="sr-only">최근 확정 결정 목록. 행을 선택하면 우측 패널에서 상세를 열고 비교 선택에 추가됩니다.</caption>
                   <thead>
                     <tr>
                       <th scope="col">결정 ID</th>
@@ -305,6 +309,9 @@ export default function DashboardPage() {
                       <th scope="col">룰 경고</th>
                       <th scope="col">검토</th>
                       <th scope="col">확정 시각</th>
+                      <th scope="col" className="recent-col-action">
+                        <span className="sr-only">상세 열기</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -316,6 +323,7 @@ export default function DashboardPage() {
                           className={`recent-row${isSelected ? ' recent-row--selected' : ''}`}
                           tabIndex={0}
                           aria-selected={isSelected}
+                          aria-label={`${d.decision_id} 상세를 우측 패널에서 열기`}
                           onClick={() => openDecisionDetail(d.decision_id)}
                           onKeyDown={e => {
                             if (e.key === 'Enter' || e.key === ' ') {
@@ -333,13 +341,20 @@ export default function DashboardPage() {
                             {d.risk_warning_count > 0 ? `${d.risk_warning_count}건` : '—'}
                           </td>
                           <td className="recent-reviewed">
-                            <span
-                              className={d.reviewed ? 'reviewed-dot' : 'unreviewed-dot'}
-                              aria-hidden
-                            />
-                            <span>{d.reviewed ? '완료' : '대기'}</span>
+                            <span className="recent-reviewed-inner">
+                              <span
+                                className={d.reviewed ? 'reviewed-dot' : 'unreviewed-dot'}
+                                aria-hidden
+                              />
+                              <span>{d.reviewed ? '완료' : '대기'}</span>
+                            </span>
                           </td>
                           <td className="recent-datetime">{fmtDatetime(d.confirmed_at)}</td>
+                          <td className="recent-col-action">
+                            <span className="recent-open-icon" aria-hidden="true">
+                              <ChevronRight size={16} strokeWidth={2.25} />
+                            </span>
+                          </td>
                         </tr>
                       );
                     })}
@@ -411,10 +426,11 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className="weekly-card">
-            <div className="weekly-label">주간 요약</div>
-            <p style={{ margin: 0 }}>{weekly_summary}</p>
-          </div>
+          <WeeklyReportPanel
+            weeklySummary={weekly_summary}
+            weeklyReport={weekly_report}
+            onRefresh={() => loadDashboard(recentPage)}
+          />
         </div>
       </div>
     </div>

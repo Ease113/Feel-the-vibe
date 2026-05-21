@@ -257,10 +257,28 @@ export default function DashboardCharts({ data, selectedIds, onToggleId }: Props
         )}
       </div>
 
-      <div className="chart-legend">
-        <div className="chart-toggles-list" role="group" aria-label="KPI 차원 선택">
-          <button type="button" className="chart-toggle-btn" onClick={selectAll}>전체 선택</button>
-          <button type="button" className="chart-toggle-btn" onClick={clearAll}>전체 해제</button>
+      <aside className="chart-legend" aria-label="차트 표시 차원">
+        <div className="chart-legend-toolbar">
+          <span className="chart-legend-label">표시 차원</span>
+          <div className="chart-legend-actions">
+            <button
+              type="button"
+              className="chart-legend-action"
+              onClick={selectAll}
+            >
+              전체 선택
+            </button>
+            <span className="chart-legend-actions-sep" aria-hidden="true">·</span>
+            <button
+              type="button"
+              className="chart-legend-action"
+              onClick={clearAll}
+            >
+              전체 해제
+            </button>
+          </div>
+        </div>
+        <div className="chart-legend-dims" role="group" aria-label="KPI 차원 선택">
           {SERIES.map(s => (
             <label key={s.key} className="chart-toggle">
               <input type="checkbox" checked={visible[s.key]} onChange={() => toggle(s.key)} />
@@ -269,7 +287,7 @@ export default function DashboardCharts({ data, selectedIds, onToggleId }: Props
             </label>
           ))}
         </div>
-      </div>
+      </aside>
     </div>
   );
 }
