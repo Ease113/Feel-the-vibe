@@ -8,9 +8,14 @@ export function formatScore(value: number): string {
   });
 }
 
+/** 가중합·종합 점수 등 복합 비용 스칼라 (pt) */
+export function formatScorePt(value: number): string {
+  return `${formatScore(value)} pt`;
+}
+
 /**
  * 무단위 스칼라 포맷 (formatScore 별칭).
- * @deprecated formatScore 사용 권장
+ * @deprecated formatScorePt 또는 formatScore 사용 권장
  * @param value - 포맷할 숫자
  */
 export function formatPt(value: number): string {
@@ -20,6 +25,11 @@ export function formatPt(value: number): string {
 /** 원화 정수 표기 */
 export function formatWon(value: number): string {
   return Math.round(value).toLocaleString(undefined);
+}
+
+/** 원화 정수 + 원 단위 */
+export function formatWonUnit(value: number): string {
+  return `${formatWon(value)} 원`;
 }
 
 /** 분 단위 소수 1자리 */

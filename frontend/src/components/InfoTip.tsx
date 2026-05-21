@@ -7,7 +7,7 @@ interface Props {
   children: ReactNode;
 }
 
-/** 섹션/필드 옆 ℹ — hover·focus 시 개발·계약 메타를 표시 */
+/** 섹션/필드 옆 ℹ — hover·focus 시 짧은 도움말 표시 */
 export default function InfoTip({ label = '상세 정보', children }: Props) {
   return (
     <span className="info-tip">

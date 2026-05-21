@@ -15,6 +15,46 @@ import {
   formatWon,
 } from '../utils/costFormat';
 
+function PigmentBar({
+  fromItem,
+  toItem,
+}: {
+  fromItem: PlanItem | undefined;
+  toItem: PlanItem | undefined;
+}) {
+  const fromP = fromItem?.pigmentIntensity;
+  const toP = toItem?.pigmentIntensity;
+  if (fromP == null || toP == null) return null;
+
+  const delta = toP - fromP;
+  const dir = delta > 2 ? '짙어짐' : delta < -2 ? '연해짐' : '유사';
+
+  return (
+    <div className="exp-item exp-item--span-2">
+      <div className="exp-lbl">안료 농도</div>
+      <div className="pigment-bar-compact">
+        <div
+          className="pigment-bar-track"
+          title="연함(0) — 짙음(100)"
+          aria-hidden="true"
+        >
+          <div
+            className="pigment-marker pigment-marker--from"
+            style={{ left: `${fromP}%` }}
+          />
+          <div
+            className="pigment-marker pigment-marker--to"
+            style={{ left: `${toP}%` }}
+          />
+        </div>
+        <p className="pigment-bar-summary">
+          Δ{Math.abs(delta)} {dir} · {fromP}→{toP}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function buildTableFooter(transitionCount: number, riskWarnings: RiskWarning[]): string {
   return `인접 전환 ${transitionCount}건 · rule 경고 ${riskWarnings.length}건`;
 }
@@ -118,6 +158,10 @@ export default function TransitionAnalysisTable({
             const objectiveCost =
               weightedCost !== null ? weightedCost + tc.sequencePenalty : null;
             const uiSev = tc.severity ? SEVERITY_UI[tc.severity] : '없음';
+            const fromItem = itemMap.get(tc.fromPlanItemId);
+            const toItem = itemMap.get(tc.toPlanItemId);
+            const showPigment =
+              fromItem?.pigmentIntensity != null && toItem?.pigmentIntensity != null;
 
             return (
               <div key={k}>
@@ -170,12 +214,19 @@ export default function TransitionAnalysisTable({
                           : `규칙 없음 · ${uiSev}`}
                       </div>
                     </div>
-                    <div className="exp-item exp-item--wide">
+                    <div
+                      className={
+                        showPigment ? 'exp-item exp-item--span-2' : 'exp-item exp-item--wide'
+                      }
+                    >
                       <div className="exp-lbl">권장 조치</div>
                       <div className="exp-val exp-val--rec">
                         {tc.warning?.recommendation ?? '—'}
                       </div>
                     </div>
+                    {showPigment ? (
+                      <PigmentBar fromItem={fromItem} toItem={toItem} />
+                    ) : null}
                   </div>
                 )}
               </div>

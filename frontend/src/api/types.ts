@@ -591,6 +591,9 @@ export interface DecisionPageState {
    */
   priorityProfile: PriorityProfile;
 
+  /** GET /plans 기본값 — 「공장 표준」 되돌리기·프리셋 기준 */
+  factoryDefaultPriorityProfile: PriorityProfile;
+
   /**
    * /predict 응답의 applied_weights.
    * multiplier 적용 후 합계=1 재정규화 값
@@ -782,6 +785,7 @@ export const INITIAL_DECISION_PAGE_STATE: DecisionPageState = {
   recommendedSequence:        [],
   currentSequence:            [],
   priorityProfile:            DEFAULT_PRIORITY_PROFILE,
+  factoryDefaultPriorityProfile: DEFAULT_PRIORITY_PROFILE,
   appliedWeights:             null,
   transitionCosts:            [],
   aggregatedCost:             null,
@@ -822,7 +826,7 @@ export const PRIORITY_MULTIPLIER: Record<PriorityLabel, PriorityMultiplier> = {
   VERY_HIGH: 1.30,
 };
 
-/** PriorityLabel → UI 표기 (한국어) */
+/** PriorityLabel → UI 표기 (한국어, 레거시·상세 화면) */
 export const PRIORITY_LABEL_KO: Record<PriorityLabel, string> = {
   VERY_LOW:  '최저',
   LOW:       '낮음',

@@ -1,13 +1,14 @@
 import { FileText, RotateCcw, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { postWeeklyReport, postWeeklySummary } from '../api/client';
-import type { GenerationMode, WeeklyReportPayload } from '../api/types';
+import type { GenerationMode, KpiTrendPoint, WeeklyReportPayload } from '../api/types';
 import { generationModeLabel } from '../utils/generationModeLabel';
 import WeeklyReportModal from './WeeklyReportModal';
 
 interface Props {
   weeklySummary: string | null;
   weeklyReport: WeeklyReportPayload | null;
+  kpiTrend: KpiTrendPoint[];
   onRefresh: () => Promise<void>;
 }
 
@@ -46,6 +47,7 @@ function persistSummaryGenerationMode(mode: GenerationMode) {
 export default function WeeklyReportPanel({
   weeklySummary,
   weeklyReport,
+  kpiTrend,
   onRefresh,
 }: Props) {
   const [localSummary, setLocalSummary] = useState<string | null>(null);
@@ -207,6 +209,7 @@ export default function WeeklyReportPanel({
         <WeeklyReportModal
           report={weeklyReport}
           weeklySummary={displaySummary}
+          kpiTrend={kpiTrend}
           onClose={() => setReportModalOpen(false)}
         />
       )}

@@ -1,9 +1,9 @@
 import type { ComparisonState, CostVector, RiskWarning } from '../api/types';
 import {
   formatPenaltyBreakdown,
-  formatScore,
-  formatWon,
+  formatScorePt,
   formatWonDelta,
+  formatWonUnit,
 } from '../utils/costFormat';
 
 interface Props {
@@ -61,11 +61,6 @@ export default function KpiSummaryBar({
   const diffBadge = comparisonState ? buildDiffBadge(comparisonState) : null;
   const penaltyBreakdown = formatPenaltyBreakdown(riskWarnings);
 
-  const heroSub =
-    totalWeightedCost !== null && sequencePenalty !== null
-      ? `totalWeightedCost ${formatScore(totalWeightedCost)} + sequencePenalty ${formatScore(sequencePenalty)}`
-      : null;
-
   const washDelta =
     aggregatedCost && baselineAggregatedCost
       ? formatWonDelta(aggregatedCost.washCost - baselineAggregatedCost.washCost)
@@ -83,10 +78,9 @@ export default function KpiSummaryBar({
           <p className="kpi-hero-label">종합 점수</p>
           <p className="kpi-hero-value">
             {objectiveScore !== null
-              ? formatScore(objectiveScore)
+              ? formatScorePt(objectiveScore)
               : <Dash predicting={isPredicting} />}
           </p>
-          {heroSub && <p className="kpi-hero-sub">{heroSub}</p>}
           {diffBadge && (
             <p className={`kpi-hero-diff ${diffBadge.cls}`}>{diffBadge.text}</p>
           )}
@@ -97,7 +91,7 @@ export default function KpiSummaryBar({
             <p className="kpi-mini-label">가중 총비용</p>
             <p className="kpi-mini-value">
               {totalWeightedCost !== null
-                ? formatScore(totalWeightedCost)
+                ? formatScorePt(totalWeightedCost)
                 : <Dash predicting={isPredicting} />}
             </p>
           </div>
@@ -106,7 +100,7 @@ export default function KpiSummaryBar({
             <p className="kpi-mini-label">순서 패널티</p>
             <p className="kpi-mini-value">
               {sequencePenalty !== null
-                ? formatScore(sequencePenalty)
+                ? formatScorePt(sequencePenalty)
                 : <Dash predicting={isPredicting} />}
             </p>
             {penaltyBreakdown && (
@@ -115,10 +109,10 @@ export default function KpiSummaryBar({
           </div>
 
           <div className="kpi-mini-card">
-            <p className="kpi-mini-label">세척 비용 합계 (원)</p>
+            <p className="kpi-mini-label">세척 비용 합계</p>
             <p className="kpi-mini-value">
               {aggregatedCost !== null
-                ? formatWon(aggregatedCost.washCost)
+                ? formatWonUnit(aggregatedCost.washCost)
                 : <Dash predicting={isPredicting} />}
             </p>
             {washDelta && (

@@ -18,7 +18,6 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import type { PlanItem, RiskWarning, TransitionCost } from '../api/types';
 import { formatScore } from '../utils/costFormat';
-import InfoTip from './InfoTip';
 import SeqSlotRow from './SeqSlotRow';
 import SkuCard from './SkuCard';
 import TransitionSlot from './TransitionSlot';
@@ -91,12 +90,7 @@ function WorkspaceChrome({ children }: { children: ReactNode }) {
       <div className="workspace-box">
         <div className="section-hd">
           <div>
-            <h2 className="section-lbl section-lbl--with-info">
-              생산 순서
-              <InfoTip label="생산 순서 상세">
-                낮은 objectiveScore가 유리. 카드 key = plan_item_id.
-              </InfoTip>
-            </h2>
+            <h2 className="section-lbl">생산 순서</h2>
             <p className="section-sub">현재안을 드래그해 순서를 바꿉니다</p>
           </div>
         </div>
