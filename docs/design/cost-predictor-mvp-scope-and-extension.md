@@ -328,6 +328,9 @@ booster = xgb.train(HYPERPARAMS, dtrain, num_boost_round=50, xgb_model="prev.jso
 | "MES 연동은 언제 들어가나요?" | P2. 본 MVP 범위 밖 | §4.6 |
 | "XGBoost가 안 깔린 환경에서는요?" | CostPredictor가 자동으로 heuristic으로 떨어집니다. API 응답 shape는 동일하고 model_version만 "heuristic-v1"로 표시 | §한계 7 |
 | "왜 sklearn을 안 쓰나요?" | 의존성 크기 최소화. xgb.train low-level API + numpy로 충분 | `xgboost-cost-predictor-integration.md` Decision 3 |
+| "wash_cost가 광택·색상군에, downtime이 점도차에 묶인 근거는요?" | 도료 공정 직관입니다 — 광택·색상군 점프는 라인 잔류 세척 부담, 점도차는 펌프·노즐 재조정 시간으로 직결됩니다 | `priority-cost-decoupling.md` Decision 1 |
+| "그 매핑이 학술적으로 검증된 건가요?" | MVP 수준에서는 도메인 직관 + 일반적 도료 공정 상식까지만 보장합니다. 실 측정값이 누적되면 동일 XGBoost 파이프라인이 각 차원의 실 기여도를 데이터에서 자동 학습해 매핑을 보정합니다 | `priority-cost-decoupling.md` Decision 1 + §4.2 |
+| "우선순위 슬라이더를 바꿔도 추천 순서가 안 바뀌는데요?" | 6개 비용 차원을 서로 다른 SKU 특성에 분리해 의존시키는 작업이 들어있습니다. 작업 후에는 wash 강조 vs 납기 강조에서 서로 다른 순서가 나옵니다 | `priority-cost-decoupling.md` |
 
 ### 답하지 말아야 할 표현
 
