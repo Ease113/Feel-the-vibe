@@ -263,6 +263,7 @@ export interface OptimizeRequest {
   plan_id: string;
   plan_item_ids: string[];
   priority_profile: PriorityProfileRaw;
+  operating_context?: OperatingContextOverride;
 }
 
 /** POST /optimize Response */
@@ -285,6 +286,7 @@ export interface PredictRequest {
   recommended_sequence: string[];
   current_sequence: string[];
   priority_profile: PriorityProfileRaw;
+  operating_context?: OperatingContextOverride;
 }
 
 /** POST /predict Response */
@@ -303,6 +305,7 @@ export interface DecisionsRequest {
   confirmed_sequence: string[];
   priority_profile: PriorityProfileRaw;
   decision_memo?: string;
+  operating_context?: OperatingContextOverride;
 }
 
 /** POST /decisions Response */
@@ -414,6 +417,12 @@ export interface OperatingContext {
   lineId: string;   // 표시 전용, MVP 단일 라인
   shift: Shift;     // 운영자 선택
   crewSize: number; // 운영자 선택
+}
+
+/** POST body용 operating_context (shift·crew만, line_id는 서버 기본값) */
+export interface OperatingContextOverride {
+  shift?: Shift;
+  crew_size?: number;
 }
 
 /** PriorityEntry — camelCase (도메인) */

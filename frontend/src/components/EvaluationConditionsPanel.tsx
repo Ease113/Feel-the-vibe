@@ -25,6 +25,7 @@ import {
   resolvePresetProfile,
   type PresetSegmentId,
 } from '../utils/priorityPresets';
+import { operatingContextEqual } from '../utils/operatingContext';
 
 const PRIORITY_LABELS: PriorityLabel[] = ['VERY_LOW', 'LOW', 'NORMAL', 'HIGH', 'VERY_HIGH'];
 const PRIORITY_AXES = Object.keys(PRIORITY_AXIS_KO) as Array<
@@ -55,10 +56,6 @@ interface Props {
   isPredicting?: boolean;
   onToggle: () => void;
   onApply: (payload: EvaluationConditionsApplyPayload) => void;
-}
-
-function operatingContextEqual(a: OperatingContext, b: OperatingContext): boolean {
-  return a.shift === b.shift && a.crewSize === b.crewSize && a.lineId === b.lineId;
 }
 
 function priorityChipTone(label: PriorityLabel): PriorityChipTone {
@@ -225,7 +222,7 @@ export default function EvaluationConditionsPanel({
               <div className="eval-sec-lbl">
                 운영 컨텍스트
                 <InfoTip label="운영 컨텍스트 안내">
-                  교대·투입 인원은 화면 표시용입니다. 목적 점수에는 운영 우선순위만 반영됩니다.
+                  교대·투입 인원은 절대 비용에만 균일하게 반영되며 추천 순서는 바꾸지 않습니다.
                 </InfoTip>
               </div>
               <div className="eval-ctx-grid">
@@ -271,9 +268,9 @@ export default function EvaluationConditionsPanel({
                 운영 우선순위
                 <InfoTip label="운영 우선순위 안내">
                   <p>
-                    전환별 예측 비용(원)과 생산 순서는 그대로입니다.
-                    여기서는 <strong>목적 점수에 각 항목을 얼마나 실지</strong>만
-                    공장 공통 5단계로 조절합니다.
+                    항목별 중요도는 <strong>목적 점수에 각 비용 차원을 얼마나 실지</strong>를
+                    공장 공통 5단계로 조절합니다. 반영 비중은 적용 후 합 100%로
+                    재정규화됩니다.
                   </p>
                   <p>
                     운영 방침 템플릿을 선택하거나 직접 설정으로 항목별 중요도를
@@ -281,8 +278,10 @@ export default function EvaluationConditionsPanel({
                     기본 프로파일은 {factoryDefaultPriorityProfile.baseWeightProfileId}입니다.
                   </p>
                   <p>
-                    「평가 조건 적용」을 누르면 추천 순서는 바뀌지 않고
-                    KPI·비교 결과에만 반영됩니다.
+                    「평가 조건 적용」을 누르면 우선순위 변경 시 AI 추천 순서와
+                    KPI를 갱신합니다. 직접 조정한 현재 순서는 유지됩니다. 교대·투입
+                    인원만 바꾼 경우에는 추천 순서는 그대로 두고 절대 비용만
+                    보정합니다.
                   </p>
                 </InfoTip>
               </div>
@@ -423,7 +422,7 @@ export default function EvaluationConditionsPanel({
           <div className="eval-footer">
             <p className="eval-footer-note">
               {isDirty
-                ? '적용하면 같은 생산 순서로 목적 점수·KPI·추천 대비만 다시 계산됩니다. 추천 순서는 바뀌지 않습니다.'
+                ? '우선순위 변경은 추천 순서를, 운영 컨텍스트는 절대 비용을 갱신합니다.'
                 : '현재 평가 조건이 KPI에 반영되어 있습니다.'}
             </p>
             <button

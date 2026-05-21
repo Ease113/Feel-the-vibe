@@ -42,6 +42,7 @@ import type {
   OperatingContextRaw,
   GetPlanResponse,
   GetPlanData,
+  OperatingContextOverride,
   OptimizeRequest,
   OptimizeResponse,
   PredictRequest,
@@ -61,6 +62,7 @@ import type {
   ComparisonState,
   PlanItem,
   OperatingContext,
+  Shift,
   ComparisonDiff,
   CostDelta,
   // State
@@ -309,6 +311,17 @@ export function toPriorityEntryRaw(entry: PriorityEntry): PriorityEntryRaw {
   return { label: entry.label, multiplier: entry.multiplier };
 }
 
+/** operatingContext → API wire (shift·crew만; 누락 시 필드 생략) */
+function toOperatingContextOverrideRaw(
+  ctx?: { shift?: Shift; crewSize?: number },
+): OperatingContextOverride | undefined {
+  if (ctx == null) return undefined;
+  const raw: OperatingContextOverride = {};
+  if (ctx.shift != null) raw.shift = ctx.shift;
+  if (ctx.crewSize != null) raw.crew_size = ctx.crewSize;
+  return Object.keys(raw).length > 0 ? raw : undefined;
+}
+
 /** PriorityProfile nested 정본 → API wire (5축) */
 export function toPriorityProfileRaw(profile: PriorityProfile): PriorityProfileRaw {
   const priorities = {} as PriorityProfileRaw['priorities'];
@@ -327,11 +340,14 @@ export function toOptimizeRequest(input: {
   planId: string;
   planItemIds: string[];
   priorityProfile: PriorityProfile;
+  operatingContext?: { shift?: Shift; crewSize?: number };
 }): OptimizeRequest {
+  const operating_context = toOperatingContextOverrideRaw(input.operatingContext);
   return {
     plan_id: input.planId,
     plan_item_ids: input.planItemIds,
     priority_profile: toPriorityProfileRaw(input.priorityProfile),
+    ...(operating_context != null ? { operating_context } : {}),
   };
 }
 
@@ -341,12 +357,15 @@ export function toPredictRequest(input: {
   recommendedSequence: string[];
   currentSequence: string[];
   priorityProfile: PriorityProfile;
+  operatingContext?: { shift?: Shift; crewSize?: number };
 }): PredictRequest {
+  const operating_context = toOperatingContextOverrideRaw(input.operatingContext);
   return {
     plan_id: input.planId,
     recommended_sequence: input.recommendedSequence,
     current_sequence: input.currentSequence,
     priority_profile: toPriorityProfileRaw(input.priorityProfile),
+    ...(operating_context != null ? { operating_context } : {}),
   };
 }
 
@@ -357,13 +376,16 @@ export function toDecisionsRequest(input: {
   confirmedSequence: string[];
   priorityProfile: PriorityProfile;
   decisionMemo?: string;
+  operatingContext?: { shift?: Shift; crewSize?: number };
 }): DecisionsRequest {
+  const operating_context = toOperatingContextOverrideRaw(input.operatingContext);
   return {
     plan_id: input.planId,
     recommended_sequence: input.recommendedSequence,
     confirmed_sequence: input.confirmedSequence,
     priority_profile: toPriorityProfileRaw(input.priorityProfile),
     decision_memo: input.decisionMemo,
+    ...(operating_context != null ? { operating_context } : {}),
   };
 }
 

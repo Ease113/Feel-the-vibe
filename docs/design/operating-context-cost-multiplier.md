@@ -1,10 +1,13 @@
 # Operating Context Cost Multiplier & Explicit Recompute Design Document
 
-> Status: Draft
+> Status: Implemented (통합 시연 검증 대기)
 > Created: 2026-05-21
+> Updated: 2026-05-21
 > Owner: Ease113
 
 ## Context
+
+> **이력:** 아래 단락은 작업 전 문제 정의입니다. B1~B8·F1~F6 구현은 2026-05-21 완료 — 현재 상태는 [Implementation Status](#implementation-status-2026-05-21) 참고.
 
 `EvaluationConditionsPanel`은 wireframe v5 시점에 draft / apply 패턴으로 만들어졌고, "평가 조건 적용" 버튼(`eval-apply-btn`)이 이미 존재합니다 (`EvaluationConditionsPanel.tsx:429-436`). 다만 현재 hook(`useDecisionPage.handleApplyEvaluationConditions`)은 우선순위 변경 시에만 `/predict`를 호출하고 `/optimize`는 호출하지 않아 추천 순서가 갱신되지 않습니다. `operatingContext`는 어떤 요청 바디에도 실리지 않아 백엔드의 `plan_context.json` 고정값(LINE-01 / day / 3명)으로만 비용이 계산됩니다. 패널 UI 텍스트도 "추천 순서는 바뀌지 않고 KPI·비교 결과에만 반영됩니다"라고 명시되어 있습니다. 이번 작업으로 운영 컨텍스트는 절대 비용을 균일 곱셈으로 보정하는 신호로, 운영 우선순위는 추천 순서를 재구성하는 신호로 역할을 분리하고, 양쪽 모두 "평가 조건 적용" 클릭으로 반영되도록 백엔드 계약·hook·UI 텍스트를 정합화합니다. 미수행 시 dropdown과 우선순위 슬라이더가 시연 신뢰성을 흐리며, 향후 작업자 뷰(P2) 확장 시 같은 단절을 다시 처리해야 합니다.
 
@@ -238,52 +241,59 @@ _해당없음_ — 인증·권한 변경 없음. 입력 검증은 Pydantic 범�
 
 ---
 
-## Current Frontend State (작업 전 스냅샷)
+## Implementation Status (2026-05-21)
+
+| Part | 범위 | 상태 |
+|---|---|---|
+| 백엔드 (B1~B8) | `cost_predictor`, routes, optimizer, decision_logger, tests | **완료** |
+| 프론트엔드 (F1~F6) | types, mappers, client, `useDecisionPage`, `EvaluationConditionsPanel` | **완료** |
+| 자동화 검증 | pytest multiplier + routes, `npm run build` | **통과** (아래 Verification) |
+| 통합·시연 검증 | dev 서버 수동 시나리오 | **대기** |
+
+### 구현 후 프론트 동작 요약
 
 | 항목 | 상태 |
 |---|---|
-| draft / apply 패턴 | `EvaluationConditionsPanel.tsx:129-148` — 이미 구현됨 (`draftContext`, `draftPriority`, `isDirty`) |
-| "평가 조건 적용" 버튼 | `EvaluationConditionsPanel.tsx:429-436` — 이미 존재 |
-| `handleApplyEvaluationConditions` | `useDecisionPage.ts:127-143` — 존재하나 `/optimize`를 호출하지 않음. priority 변경 시에만 `/predict` 호출 |
-| `operatingContext` 요청 전파 | 어디에도 실리지 않음. `postOptimize`·`postPredict`·`postDecisions` 시그니처에 없음 |
-| UI 안내 텍스트 | "추천 순서는 바뀌지 않고 KPI·비교 결과에만 반영됩니다" (`EvaluationConditionsPanel.tsx:283-286`) — 새 정책과 불일치 |
-| `crew_size` 옵션 | 2~5명 (`EvaluationConditionsPanel.tsx:259`) — 백엔드 검증 범위(1~6)와 정합 |
+| draft / apply 패턴 | `EvaluationConditionsPanel` — dropdown·Likert는 draft만, 「평가 조건 적용」 시 부모 hook 호출 |
+| `handleApplyEvaluationConditions` | priority 변경 → `/optimize` + `/predict`; context만 변경 → `/predict` 1회; 둘 다 `operating_context` 전파 |
+| `operatingContext` 요청 전파 | `postOptimize`·`postPredict`·`postDecisions` + 진입·D&D·초기화·확정 경로 |
+| UI 안내 텍스트 | 우선순위=추천 순서, 컨텍스트=절대 비용 보정 문구로 갱신 |
+| `crew_size` 옵션 | 2~5명 — 백엔드 `ge=1, le=6`와 정합 |
 
 ## Ownership
 
 | Part | Owner | 상태 |
 |---|---|---|
-| 백엔드 (B1~B8) | 백엔드 담당 | 본 작업 사이클에서 구현 |
-| 프론트엔드 (F1~F6) | 프론트엔드 담당 | 별도 사이클에서 구현 (본 문서에 명세만 포함) |
-| 통합 검증 | 양측 합류 | 백엔드 배포 후 프론트 dev 서버 연결 시 함께 확인 |
+| 백엔드 (B1~B8) | 백엔드 담당 | **완료** |
+| 프론트엔드 (F1~F6) | 프론트엔드 담당 | **완료** (2026-05-21) |
+| 통합 검증 | 양측 합류 | 자동화 통과 — **수동 시연 리허설 대기** |
 
-백엔드 변경은 모든 신규 필드를 optional로 두므로 프론트 작업 전에도 무중단 배포가 가능합니다. 프론트가 요청 바디에 `operating_context`를 넣지 않으면 기존 동작과 동일하게 `plan_context.json` 기본값으로 계산됩니다.
+신규 필드는 모두 optional이므로 `operating_context` 미전송 시 `plan_context.json` 기본값으로 계산됩니다 (하위 호환 유지).
 
-## Backend Tasks (본 사이클 작업 범위)
+## Backend Tasks (B1~B8)
 
-| # | 파일 | 변경 내용 |
-|---:|---|---|
-| B1 | `backend/app/services/cost_predictor.py` | 모듈 상단에 `NIGHT_SHIFT_MULTIPLIER=1.15`, `CREW_BASELINE=3`, `CREW_PER_PERSON_DELTA=0.10` 상수 추가. `_operating_context_multiplier(context)` 헬퍼 추가. `predict_transition`에서 predictor 내부 호출 시 baseline context로 치환하고 결과 6개 값에 배수를 곱한 뒤 `max(0.0, ...)` round. `_predict_heuristic`의 `labor_cost` 식에서 `crew_size` 의존을 `CREW_BASELINE`으로 교체. |
-| B2 | `backend/app/api/routes_predict.py` | 요청 모델에 optional `operating_context: { shift?, crew_size? }` 추가. 처리 시 `loader.get_plan_context(plan_id)`와 merge 후 evaluator/predictor 호출 경로에 전달. |
-| B3 | `backend/app/api/routes_optimize.py` | 동일하게 요청 모델 확장. merge 결과를 `OptimizerService.optimize_sequence`에 인자로 주입. |
-| B4 | `backend/app/services/optimizer.py` (`:48`, `:277`) | optional `context: dict` 인자 추가. 미제공 시 기존 `loader.get_plan_context` 호출로 fallback. 제공된 context를 `cost_predictor.predict_transition`에 그대로 전달. |
-| B5 | `backend/app/services/decision_logger.py` (`:176`) | 확정 요청 바디에서 `operating_context`를 받아 merge한 결과를 `visible.shift` / `visible.crewSize`에 반영. |
-| B6 | `backend/app/data/seed_data.py` (`:119`) | 기존 `shift_factor = 1.15` 리터럴을 `cost_predictor.NIGHT_SHIFT_MULTIPLIER` import로 교체. |
-| B7 | `backend/tests/test_cost_predictor.py` | shift day/night, crew 3/5, 두 변경 조합 케이스 추가. 6개 차원 모두 배수가 정확히 적용되는지 assert. baseline 호출과 multiplier 적용이 분리되어 있음을 회귀 테스트로 잠금. |
-| B8 | `backend/tests/test_optimizer.py` / 또는 routes 테스트 | 동일 plan에 context만 바꿔도 추천 `plan_item_id[]` 시퀀스가 동일함을 assert. priority weights를 바꾼 경우는 시퀀스 변동을 별도 케이스로 확인. |
+| # | 상태 | 파일 | 변경 내용 |
+|---:|:---:|---|---|
+| B1 | ✓ | `backend/app/services/cost_predictor.py` | `NIGHT_SHIFT_MULTIPLIER`, `CREW_BASELINE`, `CREW_PER_PERSON_DELTA`, `_operating_context_multiplier`, baseline 치환 후 6차원 균일 배수 |
+| B2 | ✓ | `backend/app/api/routes_predict.py` | optional `operating_context` + merge |
+| B3 | ✓ | `backend/app/api/routes_optimize.py` | 동일 |
+| B4 | ✓ | `backend/app/services/optimizer.py` | `operating_context` 인자 전파 |
+| B5 | ✓ | `backend/app/services/decision_logger.py` | 확정 스냅샷 `visible.shift` / `visible.crewSize` |
+| B6 | ✓ | `backend/app/data/seed_data.py` | `NIGHT_SHIFT_MULTIPLIER` import |
+| B7 | ✓ | `backend/tests/test_cost_predictor.py` | multiplier 회귀 |
+| B8 | ✓ | `backend/tests/test_operating_context_routes.py` | 순서 보존·스냅샷·호환·검증 400 |
 
-## Frontend Tasks (프론트엔드 담당자 인계)
+## Frontend Tasks (F1~F6)
 
-> 본 사이클에서는 구현하지 않습니다. 프론트엔드 담당자가 아래 명세대로 별도 PR로 진행합니다. 백엔드 변경은 optional 필드만 추가하므로 본 PR 머지 후에도 기존 프론트는 계속 동작합니다.
-
-| # | 파일 | 변경 내용 |
-|---:|---|---|
-| F1 | `frontend/src/api/types.ts` (`:262`, `:283`, `:300`) | `OptimizeRequest`, `PredictRequest`, `DecisionsRequest`에 optional `operatingContext?: { shift?: 'day' \| 'night'; crewSize?: number }` 추가. |
-| F2 | `frontend/src/api/mappers.ts` (`toOptimizeRequest` `:326`, `toPredictRequest` `:339`, `toDecisionsRequest` `:354`) | input에서 `operatingContext`를 받아 snake_case `operating_context: { shift, crew_size }`로 직렬화. 누락 시 필드 자체 생략 (백엔드는 fallback). |
-| F3 | `frontend/src/api/client.ts` (`postOptimize` `:78`, `postPredict` `:90`, `postDecisions` `:103`) | input 시그니처에 optional `operatingContext` 추가하고 mapper에 그대로 전달. |
-| F4 | `frontend/src/hooks/useDecisionPage.ts` (`handleApplyEvaluationConditions` `:127-143`) | 분기 로직 재설계: <br>- `contextChanged = !operatingContextEqual(operatingContext, prev.operatingContext)` 판정. <br>- `priorityChanged` 기존 그대로. <br>- `priorityChanged` 시: `postOptimize({ ..., operatingContext })`로 추천 순서 갱신 후 `applyOptimizeResponse`, 이어서 `runPredict(newRecommendedSequence, ..., priorityProfile, operatingContext)`. <br>- `priorityChanged` 없고 `contextChanged`만: 기존 `recommendedSequence`로 `runPredict` 한 번만. <br>- `runPredict` 시그니처에 `operatingContext` 인자 추가. <br>- 진입 플로우의 초기 `postOptimize` 호출(`:48-52`)에도 `operatingContext: planData.operatingContext` 전달. |
-| F5 | `frontend/src/api/mappers.ts` (`applyOptimizeResponse`, `applyPredictResponse`) | optimize 응답에 `recommendedSequence`·`objectiveScore`가 갱신될 때 화면 KPI도 함께 재계산되는지 확인. 시그니처 변경 없음. |
-| F6 | `frontend/src/components/EvaluationConditionsPanel.tsx` | InfoTip 문구(`:283-286`)와 footer note(`:424-428`) 수정. <br>- 운영 우선순위 안내: "「평가 조건 적용」을 누르면 우선순위는 추천 순서를 갱신하고 운영 컨텍스트는 절대 비용을 보정합니다." 류. <br>- footer note: dirty 상태에 따라 "우선순위 변경은 추천 순서를, 운영 컨텍스트는 절대 비용을 갱신합니다." 류. <br>- 운영 컨텍스트 안내 InfoTip(`:227-230`): "교대·투입 인원은 화면 표시용입니다" 문구를 "교대·투입 인원은 절대 비용에만 균일하게 반영되며 추천 순서는 바꾸지 않습니다."로 교체. |
+| # | 상태 | 파일 | 변경 내용 |
+|---:|:---:|---|---|
+| F1 | ✓ | `frontend/src/api/types.ts` | `OperatingContextOverride` + optimize/predict/decisions 요청 필드 |
+| F2 | ✓ | `frontend/src/api/mappers.ts` | `toOperatingContextOverrideRaw`, `to*Request` 직렬화 |
+| F3 | ✓ | `frontend/src/api/client.ts` | `postOptimize` / `postPredict` / `postDecisions` |
+| F4 | ✓ | `frontend/src/hooks/useDecisionPage.ts` | apply 분기, `runPredict`·진입·D&D·확정에 context 전파; 우선순위 재적용 시 `currentSequence` 보존 |
+| F5 | ✓ | `frontend/src/api/mappers.ts` | `applyOptimizeResponse` / `applyPredictResponse` — KPI·비용 갱신 경로 확인 |
+| F6 | ✓ | `frontend/src/components/EvaluationConditionsPanel.tsx` | InfoTip·footer 문구 |
+| — | ✓ | `frontend/src/utils/operatingContext.ts` | `operatingContextEqual`, `toOperatingContextOverride` (공통 유틸) |
 
 ### 프론트엔드 인계 시 백엔드가 제공하는 계약 요약
 
@@ -298,23 +308,31 @@ _해당없음_ — 인증·권한 변경 없음. 입력 검증은 Pydantic 범�
 
 ## Verification
 
-### 백엔드 (본 사이클)
+### 백엔드 (자동화 — 2026-05-21 통과)
 
-| 검증 항목 | 방법 | 기대 결과 |
-|---|---|---|
-| heuristic 균일 배수 | `pytest backend/tests/test_cost_predictor.py -k multiplier` | shift night → 6차원 모두 ×1.15, crew 5 → 모두 ×1.20, 조합 → ×1.38 |
-| XGBoost 균일 배수 | 모델 로드 환경에서 동일 케이스 실행 | heuristic과 동일 비율 |
-| 순서 보존 | `/optimize` smoke (httpx 또는 curl): 동일 plan·priority에 다양한 context 전달 | `plan_item_id[]` 완전 동일 |
-| 우선순위 변경 시 순서 변동 | `/optimize` smoke: priority weights 변경 | `plan_item_id[]` 변동 가능 |
-| 확정 스냅샷 정합성 | `/decisions` 호출 후 `GET /decisions/{id}` | `visible.shift` / `visible.crewSize`가 요청값과 일치 |
-| 호환성 | `operating_context` 누락 요청 | 기존 동작과 동일 (`plan_context.json` 기본값으로 계산) |
+| 검증 항목 | 방법 | 기대 결과 | 결과 |
+|---|---|---|---|
+| heuristic 균일 배수 | `pytest tests/test_cost_predictor.py -k multiplier` | night ×1.15, crew 5 ×1.20, 조합 ×1.38 | ✓ |
+| 순서 보존 | `pytest tests/test_operating_context_routes.py` | context만 변경 시 `plan_item_id[]` 동일 | ✓ |
+| 확정 스냅샷 정합성 | 동일 파일 `test_decisions_round_trip_*` | `visible.shift` / `visible.crewSize` 일치 | ✓ |
+| 호환성 | `test_optimize_without_operating_context` | `plan_context.json` 기본값 | ✓ |
+| invalid context 400 | shift/crew 범위 밖 | 400 | ✓ |
+| XGBoost 균일 배수 | 모델 로드 환경에서 동일 케이스 | heuristic과 동일 비율 | 수동 (선택) |
+| 우선순위 변경 시 순서 변동 | routes 또는 dev smoke | `plan_item_id[]` 변동 가능 | 수동 (시연) |
 
-### 프론트엔드 (FE 담당)
+```bash
+cd backend && source .venv/bin/activate
+pytest tests/test_cost_predictor.py -k multiplier tests/test_operating_context_routes.py -q
+# 10 passed (2026-05-21)
+```
 
-| 검증 항목 | 방법 | 기대 결과 |
-|---|---|---|
-| 프론트 UX | dev 서버에서 dropdown 변경 → draft만 갱신, "평가 조건 적용" 클릭 → 우선순위 변경 시 추천 순서 변동·컨텍스트만 변경 시 순서 유지·절대 비용 변동 | 디자인 의도와 일치 |
-| 통합 시나리오 | FE+BE 합류 후 시연 시나리오 1회 리허설 | shift·crew·priority 조합 변경이 KPI/순서/스냅샷에 일관되게 반영 |
+### 프론트엔드
+
+| 검증 항목 | 방법 | 기대 결과 | 결과 |
+|---|---|---|---|
+| 빌드 | `cd frontend && npm run build` | tsc + vite 성공 | ✓ (2026-05-21) |
+| 프론트 UX | dev 서버 수동 | draft / apply, 순서·비용 분리 반영 | **대기** |
+| 통합 시나리오 | FE+BE dev 연결 후 1회 리허설 | KPI/순서/스냅샷 일관 | **대기** |
 
 ## Open Questions
 
