@@ -12,10 +12,15 @@ import {
   applyExplainResponse,
   applyOptimizeResponse,
   applyPredictResponse,
+  deriveSequenceDiffs,
   mergeGetPlanData,
 } from '../api/mappers';
 import type { DecisionPageState, OperatingContext, PriorityProfile } from '../api/types';
 import { INITIAL_DECISION_PAGE_STATE } from '../api/types';
+import {
+  operatingContextEqual,
+  toOperatingContextOverride,
+} from '../utils/operatingContext';
 import { prioritiesEqual } from '../utils/priorityPresets';
 
 const DEMO_PLAN_ID = 'demo-plan-001';
@@ -49,6 +54,7 @@ export function useDecisionPage() {
           planId: DEMO_PLAN_ID,
           planItemIds: planData.planItems.map(i => i.planItemId),
           priorityProfile: planData.defaultPriorityProfile,
+          operatingContext: toOperatingContextOverride(planData.operatingContext),
         });
         if (cancelled) return;
 
@@ -79,6 +85,7 @@ export function useDecisionPage() {
     recommendedSequence: string[],
     currentSequence: string[],
     priorityProfile: PriorityProfile,
+    operatingContext: OperatingContext,
   ) {
     try {
       const result = await postPredict({
@@ -86,6 +93,7 @@ export function useDecisionPage() {
         recommendedSequence,
         currentSequence,
         priorityProfile,
+        operatingContext: toOperatingContextOverride(operatingContext),
       });
       // applyPredictResponse를 setState updater 안에서 실행하면 React 렌더 단계에서
       // 에러가 throw될 경우 외부 try/catch에 잡히지 않아 흰 화면이 됩니다.
@@ -111,33 +119,92 @@ export function useDecisionPage() {
 
   /** 드롭 완료 — currentSequence 낙관적 갱신 후 POST /predict */
   const handleDrop = useCallback((nextSequence: string[]) => {
-    const { recommendedSequence, priorityProfile } = stateRef.current;
+    const { recommendedSequence, priorityProfile, operatingContext } = stateRef.current;
     setState(prev => ({
       ...prev,
       isDragging:      false,
       currentSequence: nextSequence,
       isPredicting:    true,
     }));
-    void runPredict(recommendedSequence, nextSequence, priorityProfile);
+    void runPredict(recommendedSequence, nextSequence, priorityProfile, operatingContext);
   }, []);
 
   // ── 평가 조건 적용 ─────────────────────────────────────────────
 
-  /** draft 확정 — 컨텍스트는 화면용, 우선순위 변경 시에만 POST /predict */
+  /**
+   * draft 확정 — 우선순위 변경 시 /optimize + /predict,
+   * 운영 컨텍스트만 변경 시 /predict 1회.
+   */
   const handleApplyEvaluationConditions = useCallback(
     (operatingContext: OperatingContext, priorityProfile: PriorityProfile) => {
-      const { recommendedSequence, currentSequence, priorityProfile: prevProfile } =
-        stateRef.current;
+      const {
+        recommendedSequence,
+        currentSequence,
+        priorityProfile: prevProfile,
+        operatingContext: prevContext,
+        planItems,
+      } = stateRef.current;
+
       const priorityChanged = !prioritiesEqual(priorityProfile, prevProfile);
+      const contextChanged = !operatingContextEqual(operatingContext, prevContext);
+
       setState(prev => ({
         ...prev,
         operatingContext,
         priorityProfile,
-        isPredicting: priorityChanged,
+        isPredicting: priorityChanged || contextChanged,
       }));
-      if (priorityChanged) {
-        void runPredict(recommendedSequence, currentSequence, priorityProfile);
-      }
+
+      if (!priorityChanged && !contextChanged) return;
+
+      void (async () => {
+        try {
+          if (priorityChanged) {
+            const optimizeResult = await postOptimize({
+              planId: DEMO_PLAN_ID,
+              planItemIds: planItems.map(i => i.planItemId),
+              priorityProfile,
+              operatingContext: toOperatingContextOverride(operatingContext),
+            });
+
+            let newRecommendedSequence = recommendedSequence;
+            setState(prev => {
+              try {
+                const applied = applyOptimizeResponse(prev, optimizeResult);
+                newRecommendedSequence = applied.recommendedSequence;
+                const comparisonDiffs = deriveSequenceDiffs(
+                  applied.recommendedSequence,
+                  prev.currentSequence,
+                  prev.planItems,
+                );
+                return {
+                  ...applied,
+                  currentSequence: prev.currentSequence,
+                  comparisonDiffs,
+                };
+              } catch {
+                return { ...prev, isPredicting: false };
+              }
+            });
+
+            await runPredict(
+              newRecommendedSequence,
+              currentSequence,
+              priorityProfile,
+              operatingContext,
+            );
+          } else {
+            await runPredict(
+              recommendedSequence,
+              currentSequence,
+              priorityProfile,
+              operatingContext,
+            );
+          }
+        } catch {
+          setState(prev => ({ ...prev, isPredicting: false }));
+        }
+      })();
     },
     [],
   );
@@ -146,8 +213,13 @@ export function useDecisionPage() {
 
   /** POST /decisions — saveStatus: saving → success/error */
   const handleCommit = useCallback(async () => {
-    const { recommendedSequence, currentSequence, priorityProfile, decisionMemo } =
-      stateRef.current;
+    const {
+      recommendedSequence,
+      currentSequence,
+      priorityProfile,
+      operatingContext,
+      decisionMemo,
+    } = stateRef.current;
     setState(prev => ({ ...prev, saveStatus: 'saving' }));
     try {
       const result = await postDecisions({
@@ -155,6 +227,7 @@ export function useDecisionPage() {
         recommendedSequence,
         confirmedSequence: currentSequence,
         priorityProfile,
+        operatingContext: toOperatingContextOverride(operatingContext),
         decisionMemo: decisionMemo || undefined,
       });
       setState(prev => applyDecisionsResponse(prev, result));
@@ -192,13 +265,18 @@ export function useDecisionPage() {
 
   /** 현재 순서를 추천 순서로 초기화 후 POST /predict 1회 */
   const handleReset = useCallback(() => {
-    const { recommendedSequence, priorityProfile } = stateRef.current;
+    const { recommendedSequence, priorityProfile, operatingContext } = stateRef.current;
     setState(prev => ({
       ...prev,
       currentSequence: recommendedSequence,
       isPredicting: true,
     }));
-    void runPredict(recommendedSequence, recommendedSequence, priorityProfile);
+    void runPredict(
+      recommendedSequence,
+      recommendedSequence,
+      priorityProfile,
+      operatingContext,
+    );
   }, []);
 
   /** CommitResultModal 닫기 → workflowState draft 복귀 */
@@ -242,4 +320,4 @@ export function useDecisionPage() {
     handleTransitionSelect,
     handleEvaluationPanelToggle,
   };
-}
+};

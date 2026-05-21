@@ -12,6 +12,7 @@ import type {
   PredictResponse,
   PriorityProfile,
   RiskWarning,
+  Shift,
 } from './types';
 import {
   mapGetPlanResponse,
@@ -79,6 +80,7 @@ export function postOptimize(input: {
   planId: string;
   planItemIds: string[];
   priorityProfile: PriorityProfile;
+  operatingContext?: { shift?: Shift; crewSize?: number };
 }) {
   return request<OptimizeResponse>('/optimize', {
     method: 'POST',
@@ -92,6 +94,7 @@ export function postPredict(input: {
   recommendedSequence: string[];
   currentSequence: string[];
   priorityProfile: PriorityProfile;
+  operatingContext?: { shift?: Shift; crewSize?: number };
 }) {
   return request<PredictResponse>('/predict', {
     method: 'POST',
@@ -106,6 +109,7 @@ export function postDecisions(input: {
   confirmedSequence: string[];
   priorityProfile: PriorityProfile;
   decisionMemo?: string;
+  operatingContext?: { shift?: Shift; crewSize?: number };
 }) {
   return request<DecisionsResponse>('/decisions', {
     method: 'POST',

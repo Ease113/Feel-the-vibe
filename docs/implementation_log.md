@@ -1,5 +1,45 @@
 # SmartFactoryV2 구현 로그
 
+## 2026-05-21 Operating Context Cost Multiplier (BE + FE)
+
+### 배경
+
+`docs/design/operating-context-cost-multiplier.md` — 운영 컨텍스트(교대·투입 인원)는 6차원 절대 비용에 균일 곱셈만 적용하고 추천 순서는 보존하며, 운영 우선순위 변경 시에만 `/optimize`로 추천 순서를 갱신합니다. 「평가 조건 적용」 단일 버튼으로 draft → apply 오케스트레이션.
+
+### 변경 내용
+
+| 항목 | 파일 | 변경 |
+|---|---|---|
+| 균일 배수 + baseline 치환 | `backend/app/services/cost_predictor.py` | `NIGHT_SHIFT_MULTIPLIER=1.15`, `CREW_BASELINE=3`, `CREW_PER_PERSON_DELTA=0.10`, `_operating_context_multiplier` |
+| routes merge | `backend/app/api/routes_predict.py`, `routes_optimize.py`, `routes_decisions` | optional `operating_context` → `merge_operating_context` |
+| optimizer 전파 | `backend/app/services/optimizer.py` | evaluate/optimize 경로에 context 인자 |
+| 확정 스냅샷 | `backend/app/services/decision_logger.py` | `visible.shift` / `visible.crewSize` |
+| seed 상수 정합 | `backend/app/data/seed_data.py` | `NIGHT_SHIFT_MULTIPLIER` import |
+| schema | `backend/app/schemas/sequence.py`, `decision.py` | `OperatingContextOverride` |
+| routes 테스트 | `backend/tests/test_operating_context_routes.py` (신설) | 순서 보존·스냅샷·호환·400 |
+| multiplier 테스트 | `backend/tests/test_cost_predictor.py` | 6차원 배수 회귀 |
+| API types | `frontend/src/api/types.ts` | `OperatingContextOverride`, 요청 3종 |
+| mappers / client | `frontend/src/api/mappers.ts`, `client.ts` | snake_case 직렬화, optional 필드 생략 |
+| hook | `frontend/src/hooks/useDecisionPage.ts` | priority → optimize+predict; context만 → predict; 확정·D&D·진입 전파 |
+| UI 문구 | `frontend/src/components/EvaluationConditionsPanel.tsx` | InfoTip·footer — 순서 vs 절대 비용 분리 안내 |
+| 유틸 | `frontend/src/utils/operatingContext.ts` (신설) | `operatingContextEqual`, `toOperatingContextOverride` |
+
+### 검증 결과
+
+| 명령/확인 | 결과 |
+|---|---|
+| `pytest tests/test_cost_predictor.py -k multiplier tests/test_operating_context_routes.py -q` | 10 passed (2026-05-21) |
+| `npm run build` (frontend) | 성공 (2026-05-21) |
+| dev 수동 UX + 시연 리허설 | **대기** |
+
+### 남은 작업
+
+- Decision 페이지 dev 서버에서 §Verification 수동 시나리오 1회 (컨텍스트만 / 우선순위만 / 둘 다 / 확정 스냅샷).
+- Open Questions: `CREW_PER_PERSON_DELTA` 시각 효과(도메인), `/optimize` 실패 토스트 UX(프론트, non-blocking).
+- 설계 문서 상태: `operating-context-cost-multiplier.md` → Implemented (통합 시연 검증 대기).
+
+---
+
 ## 2026-05-21 LLM 분기 + 주간 보고서 백엔드 통합
 
 ### 배경
