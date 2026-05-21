@@ -5,6 +5,8 @@ import type {
   DecisionsResponse,
   ExplainResponse,
   GetPlanData,
+  WeeklyReportResponse,
+  WeeklySummaryResponse,
   GetPlanResponse,
   OptimizeResponse,
   PredictResponse,
@@ -122,6 +124,16 @@ export function patchDecisionReviewed(decisionId: string, reviewed: boolean) {
     `/decisions/${decisionId}/reviewed`,
     { method: 'PATCH', body: JSON.stringify({ reviewed }) },
   );
+}
+
+/** 주간 한 줄 요약 생성·캐시 (P1, body 없음) */
+export function postWeeklySummary() {
+  return request<WeeklySummaryResponse>('/reports/weekly-summary', { method: 'POST' });
+}
+
+/** 주간 보고서 본문 생성·캐시 (P1, body 없음) */
+export function postWeeklyReport() {
+  return request<WeeklyReportResponse>('/reports/weekly', { method: 'POST' });
 }
 
 /** 설명 생성 (P1) */

@@ -662,8 +662,9 @@ export function applyExplainResponse(
 ): DecisionPageState {
   return {
     ...prev,
-    llmExplanation:     raw.explanation,
-    isExplaining:       false,
+    llmExplanation:            raw.explanation,
+    explanationGenerationMode: raw.generation_mode,
+    isExplaining:              false,
   };
 }
 

@@ -123,13 +123,21 @@ export default function EvaluationConditionsPanel({
 
         <div className="eval-body">
           <div className="eval-cols-2">
-            <div className="eval-col">
+            <div className="eval-col eval-col--ctx">
               <div className="eval-sec-lbl">
                 운영 컨텍스트
                 <InfoTip label="운영 컨텍스트 상세">
                   lineId 표시, shift·crewSize 선택.
                   workerSkill·equipmentCondition 등 hidden 피처는 서버 처리.
                 </InfoTip>
+              </div>
+              <div className="likert-grid-hd eval-ctx-hd-spacer" aria-hidden="true">
+                <div className="likert-grid-hd-spacer" />
+                <div className="likert-labels">
+                  {PRIORITY_LABELS.map(lbl => (
+                    <span key={lbl}>{PRIORITY_LABEL_KO[lbl]}</span>
+                  ))}
+                </div>
               </div>
               <div className="eval-ctx-row">
                 <span className="eval-ctx-plan">{operatingContext.lineId}</span>

@@ -321,9 +321,66 @@ export interface ExplainRequest {
   priority_profile: PriorityProfileRaw;
 }
 
+/** LLM provider chain 결과 경로 */
+export type GenerationMode = 'gemini' | 'cli' | 'template';
+
 /** POST /explain Response */
 export interface ExplainResponse {
   explanation: string;
+  model_version: string;
+  prompt_version: string;
+  generation_mode: GenerationMode;
+}
+
+/** POST /reports/weekly-summary · weekly 공통 KPI 요약 */
+export interface WeeklyKpiSnapshot {
+  decision_count: number;
+  average_objective_score: number;
+  high_risk_transition_count: number;
+}
+
+/** POST /reports/weekly-summary Response */
+export interface WeeklySummaryResponse {
+  period_start: string;
+  period_end: string;
+  summary: string;
+  kpi_snapshot: WeeklyKpiSnapshot;
+  model_version: string;
+  prompt_version: string;
+  generation_mode: GenerationMode;
+  generated_at: string;
+}
+
+/** POST /reports/weekly Response */
+export interface WeeklyReportResponse {
+  period_start: string;
+  period_end: string;
+  summary: string;
+  key_findings: string[];
+  recommendations: string[];
+  kpi_snapshot: WeeklyKpiSnapshot;
+  cost_summary: Record<string, number>;
+  risk_summary: Record<string, number>;
+  model_version: string;
+  prompt_version: string;
+  generation_mode: GenerationMode;
+  generated_at: string;
+}
+
+/** GET /dashboard.weekly_report — cache 본문 */
+export interface WeeklyReportPayload {
+  period_start: string;
+  period_end: string;
+  summary: string;
+  key_findings: string[] | null;
+  recommendations: string[] | null;
+  kpi_snapshot: Record<string, unknown>;
+  cost_summary: Record<string, unknown>;
+  risk_summary: Record<string, unknown>;
+  model_version: string;
+  prompt_version: string;
+  generation_mode: GenerationMode;
+  generated_at: string;
 }
 
 // ============================================================
@@ -592,6 +649,9 @@ export interface DecisionPageState {
   /** POST /explain 결과. 버튼 클릭 시에만 생성 */
   llmExplanation: string | null;
 
+  /** POST /explain provenance — 설명 재생성 시 갱신 */
+  explanationGenerationMode: GenerationMode | null;
+
   // ── Data: 확정 ───────────────────────────────────────────────
   /** 운영자 입력 메모. POST /decisions 의 decision_memo */
   decisionMemo: string;
@@ -734,6 +794,7 @@ export const INITIAL_DECISION_PAGE_STATE: DecisionPageState = {
   comparisonSummary:          null,
   comparisonDiffs:            [],
   llmExplanation:             null,
+  explanationGenerationMode:  null,
   decisionMemo:               '',
   decisionId:                 null,
   committedAt:                null,
@@ -881,5 +942,6 @@ export interface DashboardResponse {
   risk_patterns: Array<Record<string, unknown>>;
   recent_decisions: RecentDecisionItem[];
   recent_decisions_meta: RecentDecisionsMeta;
-  weekly_summary: string;
+  weekly_summary: string | null;
+  weekly_report: WeeklyReportPayload | null;
 }

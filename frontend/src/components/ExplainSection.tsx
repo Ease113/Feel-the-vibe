@@ -1,8 +1,10 @@
 import { RotateCcw } from 'lucide-react';
-import type { ComparisonState } from '../api/types';
+import type { ComparisonState, GenerationMode } from '../api/types';
+import { generationModeLabel } from '../utils/generationModeLabel';
 
 interface Props {
   llmExplanation: string | null;
+  explanationGenerationMode: GenerationMode | null;
   isExplaining: boolean;
   comparisonState: ComparisonState | null;
   onExplain: () => void;
@@ -17,6 +19,7 @@ interface Props {
  */
 export default function ExplainSection({
   llmExplanation,
+  explanationGenerationMode,
   isExplaining,
   comparisonState,
   onExplain,
@@ -25,8 +28,15 @@ export default function ExplainSection({
 
   return (
     <div className="side-card">
-      <div className="panel-hd">
-        AI 설명 <span className="panel-hd-note">(선택)</span>
+      <div className="panel-hd panel-hd--split">
+        <span>
+          AI 설명 <span className="panel-hd-note">(선택)</span>
+        </span>
+        {explanationGenerationMode != null && llmExplanation != null && (
+          <span className="generation-badge">
+            {generationModeLabel(explanationGenerationMode)}
+          </span>
+        )}
       </div>
       <div className="side-sec">
         {llmExplanation ? (
