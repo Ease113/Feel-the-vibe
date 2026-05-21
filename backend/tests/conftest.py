@@ -19,3 +19,9 @@ from pathlib import Path
 _TMP_DIR = Path(tempfile.mkdtemp(prefix="smartfactory-test-"))
 os.environ["SMARTFACTORY_DB_PATH"] = str(_TMP_DIR / "test.sqlite3")
 os.environ["SMARTFACTORY_MODEL_DIR"] = str(_TMP_DIR / "models")
+# LLM 호출지점 테스트가 외부 네트워크/CLI에 의존하지 않도록 빈 문자열로 강제한다.
+# config.py의 ``load_dotenv(override=False)``는 이미 설정된 값을 덮어쓰지 않으므로
+# 빈 문자열을 미리 세팅하면 실제 `.env`의 API key가 테스트로 흘러들지 않는다.
+# config.py의 LLM_API_KEY는 빈 문자열을 None으로 normalize 한다.
+# test_llm_client는 LLMClient에 직접 인자를 주입해 분기를 확인한다.
+os.environ["SMARTFACTORY_LLM_API_KEY"] = ""
