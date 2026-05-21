@@ -30,6 +30,7 @@ class SequenceEvaluator:
         plan_id: str,
         sequence: list[str],
         priority_profile: dict | None,
+        operating_context: dict | None = None,
     ) -> dict[str, Any]:
         """주어진 plan_item_id 순서에 대해 전환 비용과 규칙 페널티를 집계한다.
 
@@ -40,12 +41,18 @@ class SequenceEvaluator:
             plan_id: 평가할 생산 계획 식별자.
             sequence: plan_item_id 배열 (평가 순서 기준).
             priority_profile: 비용 차원별 가중치 설정. None이면 NORMAL 기본값 적용.
+            operating_context: 라우트에서 merge된 운영 컨텍스트. None이면 plan_context.json
+                기본값을 사용한다 (CostPredictor가 shift/crew_size 균일 배수를 자체 적용).
 
         Returns:
             sequence, transition_costs, aggregated_cost, objective_score 등을 포함한 평가 결과 딕셔너리.
         """
         plan_item_map = self.loader.get_plan_item_map(plan_id)
-        context = self.loader.get_plan_context(plan_id)
+        context = (
+            operating_context
+            if operating_context is not None
+            else self.loader.get_plan_context(plan_id)
+        )
         normalized_priority, applied_weights = normalize_priority_profile(priority_profile)
         aggregated = {dimension: 0.0 for dimension in COST_DIMENSIONS}
         transition_costs = []
@@ -115,6 +122,7 @@ class SequenceEvaluator:
         recommended_sequence: list[str],
         current_sequence: list[str],
         priority_profile: dict | None,
+        operating_context: dict | None = None,
     ) -> dict[str, Any]:
         """추천 순서와 현재 순서의 objectiveScore를 비교해 차이 지표를 반환한다.
 
@@ -126,12 +134,18 @@ class SequenceEvaluator:
             recommended_sequence: 기준(추천) 순서 plan_item_id 배열.
             current_sequence: 사용자가 편집한 현재 순서 plan_item_id 배열.
             priority_profile: 비용 차원별 가중치 설정.
+            operating_context: 라우트에서 merge된 운영 컨텍스트. 양 evaluate 호출에
+                동일하게 전달되어 비교 기준이 흔들리지 않는다.
 
         Returns:
             current_evaluation, baseline_evaluation, comparison_state, comparison_summary를 포함한 딕셔너리.
         """
-        baseline = self.evaluate(plan_id, recommended_sequence, priority_profile)
-        current = self.evaluate(plan_id, current_sequence, priority_profile)
+        baseline = self.evaluate(
+            plan_id, recommended_sequence, priority_profile, operating_context
+        )
+        current = self.evaluate(
+            plan_id, current_sequence, priority_profile, operating_context
+        )
         recommended_score = baseline["objective_score"]
         current_score = current["objective_score"]
         delta = round(current_score - recommended_score, 2)
@@ -185,6 +199,7 @@ class Optimizer:
         plan_id: str,
         plan_item_ids: list[str],
         priority_profile: dict | None,
+        operating_context: dict | None = None,
     ) -> dict[str, Any]:
         """objectiveScore를 최소화하는 생산순서를 탐색한다.
 
@@ -195,6 +210,8 @@ class Optimizer:
             plan_id: 최적화할 생산 계획 식별자.
             plan_item_ids: 순서를 결정할 plan_item_id 목록.
             priority_profile: 비용 차원별 가중치 설정.
+            operating_context: 라우트에서 merge된 운영 컨텍스트. 균일 배수만 적용되므로
+                상대 순위에는 영향을 주지 않지만 절대 비용·objective_score 값에는 반영된다.
 
         Returns:
             recommended_sequence, transition_costs, objective_score, optimizer_backend 등을 포함한 딕셔너리.
@@ -202,11 +219,17 @@ class Optimizer:
         if len(plan_item_ids) <= 1:
             sequence = plan_item_ids
         else:
-            sequence = self._ortools_sequence(plan_id, plan_item_ids, priority_profile)
+            sequence = self._ortools_sequence(
+                plan_id, plan_item_ids, priority_profile, operating_context
+            )
             if sequence is None:
-                sequence = self._fallback_sequence(plan_id, plan_item_ids, priority_profile)
+                sequence = self._fallback_sequence(
+                    plan_id, plan_item_ids, priority_profile, operating_context
+                )
 
-        evaluation = self.evaluator.evaluate(plan_id, sequence, priority_profile)
+        evaluation = self.evaluator.evaluate(
+            plan_id, sequence, priority_profile, operating_context
+        )
         optimizer_backend = self._backend_label(len(plan_item_ids), sequence)
         return {
             "recommended_sequence": sequence,
@@ -235,23 +258,27 @@ class Optimizer:
         plan_id: str,
         plan_item_ids: list[str],
         priority_profile: dict | None,
+        operating_context: dict | None,
     ) -> list[str]:
         if len(plan_item_ids) <= 8:
-            return self._brute_force(plan_id, plan_item_ids, priority_profile)
-        return self._nearest_neighbor(plan_id, plan_item_ids, priority_profile)
+            return self._brute_force(plan_id, plan_item_ids, priority_profile, operating_context)
+        return self._nearest_neighbor(plan_id, plan_item_ids, priority_profile, operating_context)
 
     def _ortools_sequence(
         self,
         plan_id: str,
         plan_item_ids: list[str],
         priority_profile: dict | None,
+        operating_context: dict | None,
     ) -> list[str] | None:
         self._last_ortools_sequence = None
         if not self.ortools_available:
             return None
 
         try:
-            score_matrix = self._build_score_matrix(plan_id, plan_item_ids, priority_profile)
+            score_matrix = self._build_score_matrix(
+                plan_id, plan_item_ids, priority_profile, operating_context
+            )
             ordered_indices = self._solve_open_path(score_matrix)
         except Exception as exc:
             _log.warning("OR-tools sequence failed: %s", exc)
@@ -272,9 +299,14 @@ class Optimizer:
         plan_id: str,
         plan_item_ids: list[str],
         priority_profile: dict | None,
+        operating_context: dict | None,
     ) -> list[list[int]]:
         plan_item_map = self.loader.get_plan_item_map(plan_id)
-        context = self.loader.get_plan_context(plan_id)
+        context = (
+            operating_context
+            if operating_context is not None
+            else self.loader.get_plan_context(plan_id)
+        )
         _, applied_weights = normalize_priority_profile(priority_profile)
         matrix: list[list[int]] = []
 
@@ -358,11 +390,14 @@ class Optimizer:
         plan_id: str,
         plan_item_ids: list[str],
         priority_profile: dict | None,
+        operating_context: dict | None,
     ) -> list[str]:
         best_sequence = list(plan_item_ids)
         best_score = float("inf")
         for candidate in permutations(plan_item_ids):
-            evaluation = self.evaluator.evaluate(plan_id, list(candidate), priority_profile)
+            evaluation = self.evaluator.evaluate(
+                plan_id, list(candidate), priority_profile, operating_context
+            )
             if evaluation["objective_score"] < best_score:
                 best_score = evaluation["objective_score"]
                 best_sequence = list(candidate)
@@ -373,6 +408,7 @@ class Optimizer:
         plan_id: str,
         plan_item_ids: list[str],
         priority_profile: dict | None,
+        operating_context: dict | None,
     ) -> list[str]:
         remaining = set(plan_item_ids)
         sequence = [plan_item_ids[0]]
@@ -382,7 +418,7 @@ class Optimizer:
             next_id = min(
                 remaining,
                 key=lambda item_id: self.evaluator.evaluate(
-                    plan_id, [last, item_id], priority_profile
+                    plan_id, [last, item_id], priority_profile, operating_context
                 )["objective_score"],
             )
             sequence.append(next_id)

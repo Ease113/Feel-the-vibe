@@ -30,11 +30,18 @@ class DecisionLogger:
             decision_id와 committed_at(UTC ISO8601)을 담은 딕셔너리.
         """
         evaluator = SequenceEvaluator()
+        override = (
+            request.operating_context.model_dump(exclude_none=True)
+            if request.operating_context is not None
+            else None
+        )
+        operating_context = evaluator.loader.merge_operating_context(request.plan_id, override)
         comparison = evaluator.compare(
             request.plan_id,
             request.recommended_sequence,
             request.confirmed_sequence,
             request.priority_profile,
+            operating_context=operating_context,
         )
         recommended_cost = comparison["baseline_evaluation"]
         confirmed_cost = comparison["current_evaluation"]
@@ -44,7 +51,7 @@ class DecisionLogger:
 
         comparison_state = self._comparison_state_for_storage(comparison)
         cost_delta = self._cost_delta(recommended_cost, confirmed_cost)
-        context_snapshot = self._context_snapshot(evaluator, request.plan_id)
+        context_snapshot = self._context_snapshot(operating_context)
 
         row = {
             "decision_id": decision_id,
@@ -172,8 +179,8 @@ class DecisionLogger:
         }
 
     @staticmethod
-    def _context_snapshot(evaluator: SequenceEvaluator, plan_id: str) -> dict[str, Any]:
-        context = evaluator.loader.get_plan_context(plan_id)
+    def _context_snapshot(context: dict[str, Any]) -> dict[str, Any]:
+        """확정 시점의 merge된 운영 컨텍스트를 SQLite에 저장할 형태로 정규화한다."""
         return {
             "visible": {
                 "lineId": context.get("line_id", "LINE-01"),

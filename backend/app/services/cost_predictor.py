@@ -15,6 +15,59 @@ from app.ml.features import build_features_for_transition
 
 _log = logging.getLogger(__name__)
 
+# 운영 컨텍스트 균일 배수 상수 (docs/design/operating-context-cost-multiplier.md 참고).
+# predictor 내부 비용 산출은 baseline context로 고정하고, 결과 dict 전체에 균일
+# 배수를 곱해 추천 순서 보존을 보장한다. seed_data.shift_factor와 동일 값을 쓴다.
+NIGHT_SHIFT_MULTIPLIER = 1.15
+CREW_BASELINE = 3
+CREW_PER_PERSON_DELTA = 0.10
+_MIN_CONTEXT_MULTIPLIER = 0.1
+_COST_DIMENSIONS: tuple[str, ...] = (
+    "setup_time",
+    "labor_cost",
+    "material_loss",
+    "wash_cost",
+    "downtime",
+    "packaging_time",
+)
+
+
+def _operating_context_multiplier(context: dict[str, Any]) -> float:
+    """6차원 비용에 균일하게 곱해질 배수를 산출한다.
+
+    shift=night이면 NIGHT_SHIFT_MULTIPLIER, crew_size는 baseline 대비 1명당
+    CREW_PER_PERSON_DELTA 비율로 가감한다. 균일 배수이므로 어떤 전환에도
+    동일 비율이 곱해져 추천 순서의 상대 순위는 변하지 않는다.
+
+    Args:
+        context: 라인 컨텍스트. `shift`, `crew_size` 필드를 읽으며 미지정 시
+            baseline (day, CREW_BASELINE)으로 간주한다.
+
+    Returns:
+        양수 배수. 비현실적 입력으로 0 이하가 되지 않도록 0.1로 클램프한다.
+    """
+    multiplier = 1.0
+    if str(context.get("shift", "day")) == "night":
+        multiplier *= NIGHT_SHIFT_MULTIPLIER
+    try:
+        crew = int(context.get("crew_size", CREW_BASELINE))
+    except (TypeError, ValueError):
+        crew = CREW_BASELINE
+    multiplier *= 1.0 + CREW_PER_PERSON_DELTA * (crew - CREW_BASELINE)
+    return max(_MIN_CONTEXT_MULTIPLIER, multiplier)
+
+
+def _baseline_context(context: dict[str, Any]) -> dict[str, Any]:
+    """운영 컨텍스트의 shift/crew_size만 baseline으로 치환한 새 dict를 반환한다.
+
+    worker_skill, equipment_condition, days_since_last_clean 등 운영 컨텍스트
+    dropdown으로 노출되지 않는 필드는 그대로 보존한다.
+    """
+    baseline = dict(context)
+    baseline["shift"] = "day"
+    baseline["crew_size"] = CREW_BASELINE
+    return baseline
+
 
 class CostPredictor:
     """Predicts six transition cost dimensions with XGBoost or heuristic fallback."""
@@ -59,13 +112,20 @@ class CostPredictor:
             setup_time, labor_cost, material_loss, wash_cost, downtime,
             packaging_time 6개 키를 가진 비용 딕셔너리 (단위: 분/원/L).
         """
+        baseline = _baseline_context(context)
+        multiplier = _operating_context_multiplier(context)
         if self._models is None:
-            return self._predict_heuristic(from_item, to_item, context)
-        try:
-            return self._predict_xgboost(from_item, to_item, context)
-        except Exception as exc:
-            _log.warning("XGBoost predict failed, falling back to heuristic: %s", exc)
-            return self._predict_heuristic(from_item, to_item, context)
+            costs = self._predict_heuristic(from_item, to_item, baseline)
+        else:
+            try:
+                costs = self._predict_xgboost(from_item, to_item, baseline)
+            except Exception as exc:
+                _log.warning("XGBoost predict failed, falling back to heuristic: %s", exc)
+                costs = self._predict_heuristic(from_item, to_item, baseline)
+        return {
+            dim: round(max(0.0, costs[dim] * multiplier), 2)
+            for dim in _COST_DIMENSIONS
+        }
 
     def _predict_xgboost(
         self,
@@ -136,7 +196,9 @@ class CostPredictor:
             + (6500.0 if family_changed else 1500.0)
             + 90.0 * gloss_gap
         )
-        labor_cost = setup_time * float(context.get("crew_size", 3)) * 850.0
+        # crew_size 의존은 predict_transition의 균일 배수로 옮겨졌으므로 여기서는
+        # baseline 인원으로 고정해 산출한다. context의 crew_size는 무시한다.
+        labor_cost = setup_time * float(CREW_BASELINE) * 850.0
 
         return {
             "setup_time": round(setup_time, 2),
