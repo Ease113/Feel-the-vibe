@@ -13,6 +13,10 @@ _DECISIONS_SENTINEL_COLUMNS = frozenset(
     {"confirmed_at", "applied_weights", "context_snapshot", "confirmed_cost_vector"}
 )
 
+# weekly_report_cache의 generation_mode CHECK 제약이 신 enum(`gemini`/`cli`/`template`)을
+# 포함하는지 판별하기 위한 sentinel 문자열. schema.sql의 CHECK 정의와 동기화한다.
+_WEEKLY_REPORT_GEN_MODE_SENTINEL = "'gemini'"
+
 
 def get_connection() -> sqlite3.Connection:
     """SQLite 연결을 열고 row_factory를 sqlite3.Row로 설정해 반환한다.
@@ -37,6 +41,7 @@ def initialize_database() -> None:
     """
     with get_connection() as connection:
         _recreate_decisions_if_legacy(connection)
+        _recreate_weekly_report_cache_if_legacy(connection)
         connection.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
 
 
@@ -61,3 +66,25 @@ def _recreate_decisions_if_legacy(connection: sqlite3.Connection) -> None:
         row_count,
     )
     connection.execute("DROP TABLE decisions")
+
+
+def _recreate_weekly_report_cache_if_legacy(connection: sqlite3.Connection) -> None:
+    """weekly_report_cache의 generation_mode CHECK이 구 enum이면 DROP하고 WARNING을 남긴다.
+
+    Args:
+        connection: 현재 SQLite 연결.
+    """
+    row = connection.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='weekly_report_cache'"
+    ).fetchone()
+    if not row:
+        return
+    sql = row[0] or ""
+    if _WEEKLY_REPORT_GEN_MODE_SENTINEL in sql:
+        return
+    row_count = connection.execute("SELECT COUNT(*) FROM weekly_report_cache").fetchone()[0]
+    _log.warning(
+        "Legacy weekly_report_cache schema detected — dropping and recreating (data loss: %d rows)",
+        row_count,
+    )
+    connection.execute("DROP TABLE weekly_report_cache")

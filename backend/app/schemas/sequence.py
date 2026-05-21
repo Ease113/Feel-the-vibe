@@ -1,6 +1,6 @@
-"""순서 최적화, 예측, 검증, 설명 엔드포인트의 요청 스키마."""
+"""순서 최적화, 예측, 검증, 설명 엔드포인트의 요청·응답 스키마."""
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -36,3 +36,12 @@ class ExplainRequest(BaseModel):
     comparison_summary: str = ""
     risk_warnings: list[dict[str, Any]] = Field(default_factory=list)
     priority_profile: dict[str, Any] = Field(default_factory=dict)
+
+
+class ExplainResponse(BaseModel):
+    """POST /explain 응답: 설명 문장 + LLM provenance 3종."""
+
+    explanation: str
+    model_version: str
+    prompt_version: str
+    generation_mode: Literal["gemini", "cli", "template"]

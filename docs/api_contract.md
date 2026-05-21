@@ -911,15 +911,80 @@ Response:
     "total": 3,
     "total_pages": 1
   },
-  "weekly_summary": "이번 기간에는 3건의 생산순서 결정이 저장되었고, 고위험 색상 전환은 4건 감지되었습니다."
+  "weekly_summary": "이번 기간에는 3건의 생산순서 결정이 저장되었고, 고위험 색상 전환은 4건 감지되었습니다.",
+  "weekly_report": {
+    "period_start": "2026-05-18",
+    "period_end": "2026-05-21",
+    "summary": "이번 주 ...",
+    "key_findings": ["..."],
+    "recommendations": ["..."],
+    "kpi_snapshot": {"decision_count": 3, "average_objective_score": 76012.3, "high_risk_transition_count": 4},
+    "cost_summary": {"setup_time": 12.4, "labor_cost": 7203.1, "material_loss": 0.3, "wash_cost": 4521.0, "downtime": 1.7, "packaging_time": 1.5, "sequence_risk": 0.5},
+    "risk_summary": {"SR-001": 2, "SR-003": 1},
+    "model_version": "gemini-flash-latest",
+    "prompt_version": "weekly-report-v1",
+    "generation_mode": "gemini",
+    "generated_at": "2026-05-21T01:24:11+00:00"
+  }
 }
 ```
 
-저장된 결정이 없으면 `decision_count`, `average_objective_score`, `high_risk_transition_count`는 `0`이고, `kpi_trend`, `risk_patterns`, `recent_decisions`는 빈 배열이며 `recent_decisions_meta`는 `{ "page": 1, "page_size": 5, "total": 0, "total_pages": 0 }`입니다. 이때 `weekly_summary`는 첫 생산순서를 확정하면 KPI가 생성된다는 안내 문구입니다.
+`weekly_summary`와 `weekly_report`는 `weekly_report_cache`의 캐시 row를 그대로 노출합니다. 명시 endpoint(`POST /reports/weekly-summary`, `POST /reports/weekly`)가 호출되기 전에는 둘 다 `null`입니다. `/dashboard` 자체는 LLM을 호출하지 않습니다(roadmap §13의 "LLM 자동 호출 금지" 정합).
+
+저장된 결정이 없으면 `decision_count`, `average_objective_score`, `high_risk_transition_count`는 `0`이고, `kpi_trend`, `risk_patterns`, `recent_decisions`는 빈 배열이며 `recent_decisions_meta`는 `{ "page": 1, "page_size": 5, "total": 0, "total_pages": 0 }`입니다.
 
 ## POST `/explain`
 
-현재 비교 상태와 warning 기반의 한국어 template 설명을 반환합니다. 실제 LLM 호출은 P1 이후 선택 사항입니다.
+현재 비교 상태와 warning을 기반으로 한국어 설명을 생성합니다. provider chain은 Gemini API → 로컬 `claude` CLI → template fallback 순서이며, 응답에는 어느 경로로 생성되었는지를 가시화하는 provenance 3 필드(`model_version`, `prompt_version`, `generation_mode`)가 동봉됩니다. `generation_mode`는 `"gemini"`, `"cli"`, `"template"` 중 하나입니다.
+
+```json
+{
+  "explanation": "현재 순서는 추천안보다 목적 점수가 12.34 높습니다. BLACK→WHITE 위험이 감지되었습니다.",
+  "model_version": "gemini-flash-latest",
+  "prompt_version": "explain-v1",
+  "generation_mode": "gemini"
+}
+```
+
+## POST `/reports/weekly-summary`
+
+현재 진행 중인 ISO 주(월요일~기준일까지)의 한 줄 요약을 생성·캐시합니다. request body는 없으며 서버가 KST 기준 오늘 날짜로 in-progress 주를 자동 계산합니다. 호출 시점이 수요일이면 월·화·수 데이터로 집계합니다. cache는 `weekly_report_cache` 단일 row에 UPSERT됩니다.
+
+```json
+{
+  "period_start": "2026-05-18",
+  "period_end": "2026-05-21",
+  "summary": "이번 주 3건의 결정이 저장되었고 평균 목적 점수는 76012.30입니다. 고위험 색상 전환은 4건 감지되었습니다.",
+  "kpi_snapshot": {"decision_count": 3, "average_objective_score": 76012.3, "high_risk_transition_count": 4},
+  "model_version": "gemini-flash-latest",
+  "prompt_version": "weekly-summary-v1",
+  "generation_mode": "gemini",
+  "generated_at": "2026-05-21T01:23:45+00:00"
+}
+```
+
+## POST `/reports/weekly`
+
+`/reports/weekly-summary`와 동일한 기간 계산을 수행하고, 본문(summary + key_findings + recommendations)을 생성·캐시합니다. weekly-summary와 같은 row를 공유하며 본문 3컬럼을 함께 갱신합니다.
+
+```json
+{
+  "period_start": "2026-05-18",
+  "period_end": "2026-05-21",
+  "summary": "이번 주는 ...",
+  "key_findings": ["블랙→화이트 전환이 2회로 가장 빈번", "..."],
+  "recommendations": ["수요일 오전에 블랙 계열을 연속 배치 권장", "..."],
+  "kpi_snapshot": {"decision_count": 3, "average_objective_score": 76012.3, "high_risk_transition_count": 4},
+  "cost_summary": {"setup_time": 12.4, "labor_cost": 7203.1, "material_loss": 0.3, "wash_cost": 4521.0, "downtime": 1.7, "packaging_time": 1.5, "sequence_risk": 0.5},
+  "risk_summary": {"SR-001": 2, "SR-003": 1},
+  "model_version": "gemini-flash-latest",
+  "prompt_version": "weekly-report-v1",
+  "generation_mode": "gemini",
+  "generated_at": "2026-05-21T01:24:11+00:00"
+}
+```
+
+LLM 환경(API key·CLI)이 모두 없으면 자동으로 template fallback이 동작하며 `generation_mode == "template"`이 됩니다. 어떤 경우에도 200 응답을 반환합니다.
 
 ## PATCH `/decisions/{decision_id}/reviewed`
 

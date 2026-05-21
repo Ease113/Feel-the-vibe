@@ -197,7 +197,7 @@ CREATE TABLE IF NOT EXISTS weekly_report_cache (
     model_version           TEXT    NOT NULL DEFAULT 'heuristic-v1',
     rule_version            TEXT    NOT NULL DEFAULT 'rules-2026.05.v1',
     generation_mode         TEXT    NOT NULL DEFAULT 'template'
-                            CHECK (generation_mode IN ('live', 'cached', 'template')),
+                            CHECK (generation_mode IN ('gemini', 'cli', 'template')),
     generated_at            TEXT    NOT NULL,
 
     PRIMARY KEY (report_id)

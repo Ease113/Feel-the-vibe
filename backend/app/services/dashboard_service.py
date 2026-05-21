@@ -1,10 +1,18 @@
-"""저장된 의사결정 로그를 집계해 KPI 대시보드 데이터를 생성하는 서비스."""
+"""저장된 의사결정 로그를 집계해 KPI 대시보드 데이터를 생성하는 서비스.
+
+`weekly_summary` 한 줄과 `weekly_report` 본문은 본 서비스에서 LLM을 호출하지 않고
+`weekly_report_cache` row를 그대로 조회만 한다. 명시 endpoint(``/reports/weekly-summary``,
+``/reports/weekly``)가 호출되기 전에는 둘 다 ``None``으로 노출된다(roadmap §13의
+"LLM 자동 호출 금지" 정합).
+"""
 
 import math
 from statistics import mean
 from typing import Any
 
+from app.db import weekly_report_repo
 from app.services.decision_logger import DecisionLogger
+from app.services.weekly_report_service import iso_week_in_progress
 
 
 class DashboardService:
@@ -19,6 +27,8 @@ class DashboardService:
 
         결정 건수가 0일 때도 빈 값으로 안전하게 응답한다.
         recent_decisions는 confirmed_at 내림차순 기준으로 페이지 단위로 잘라 반환한다.
+        `weekly_summary`/`weekly_report`는 `weekly_report_cache`의 캐시 값만 반영하며
+        본 서비스 자체는 LLM을 호출하지 않는다.
 
         Args:
             recent_page: 최근 확정 결정 목록 페이지 (1부터 시작).
@@ -26,7 +36,7 @@ class DashboardService:
 
         Returns:
             dashboard_summary, kpi_trend, risk_patterns, recent_decisions,
-            recent_decisions_meta, weekly_summary를 담은 딕셔너리.
+            recent_decisions_meta, weekly_summary, weekly_report를 담은 딕셔너리.
         """
         decisions = DecisionLogger().list_decisions()
         objective_scores = [
@@ -70,6 +80,7 @@ class DashboardService:
             }
             for decision in decisions[start:end]
         ]
+        weekly_summary, weekly_report = self._weekly_cache_view()
         return {
             "dashboard_summary": {
                 "decision_count": len(decisions),
@@ -85,8 +96,43 @@ class DashboardService:
                 "total": total_recent,
                 "total_pages": total_pages,
             },
-            "weekly_summary": self._weekly_summary(len(decisions), high_risk_count),
+            "weekly_summary": weekly_summary,
+            "weekly_report": weekly_report,
         }
+
+    @staticmethod
+    def _weekly_cache_view() -> tuple[str | None, dict[str, Any] | None]:
+        """현재 진행 중 ISO 주 cache row를 조회해 (한 줄 요약, 본문 dict) 튜플로 반환한다.
+
+        cache가 없으면 (None, None). 한 줄 요약만 있고 본문이 없으면 (str, None).
+        본문이 있으면 (str, dict). LLM 호출은 하지 않는다.
+        """
+        period_start, period_end = iso_week_in_progress()
+        row = weekly_report_repo.get_for_period(period_start, period_end)
+        if row is None:
+            return None, None
+
+        weekly_summary = row.get("llm_summary")
+        key_findings = row.get("llm_key_findings")
+        recommendations = row.get("llm_recommendations")
+        if key_findings is None and recommendations is None:
+            return weekly_summary, None
+
+        weekly_report = {
+            "period_start": row["period_start"],
+            "period_end": row["period_end"],
+            "summary": weekly_summary or "",
+            "key_findings": key_findings or [],
+            "recommendations": recommendations or [],
+            "kpi_snapshot": row.get("kpi_snapshot", {}),
+            "cost_summary": row.get("cost_summary", {}),
+            "risk_summary": row.get("risk_summary", {}),
+            "model_version": row["model_version"],
+            "prompt_version": row["prompt_version"],
+            "generation_mode": row["generation_mode"],
+            "generated_at": row["generated_at"],
+        }
+        return weekly_summary, weekly_report
 
     @staticmethod
     def _risk_patterns(decisions: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -99,12 +145,3 @@ class DashboardService:
             {"rule_id": rule_id, "count": count}
             for rule_id, count in sorted(counts.items(), key=lambda item: item[1], reverse=True)
         ]
-
-    @staticmethod
-    def _weekly_summary(decision_count: int, high_risk_count: int) -> str:
-        if decision_count == 0:
-            return "아직 저장된 확정 로그가 없습니다. 첫 생산순서를 확정하면 KPI가 생성됩니다."
-        return (
-            f"이번 기간에는 {decision_count}건의 생산순서 결정이 저장되었고, "
-            f"고위험 색상 전환은 {high_risk_count}건 감지되었습니다."
-        )

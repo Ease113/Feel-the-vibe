@@ -11,6 +11,7 @@ from app.api import (
     routes_optimize,
     routes_plans,
     routes_predict,
+    routes_reports,
     routes_validate,
 )
 from app.db.sqlite import initialize_database
@@ -40,6 +41,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_decisions.router)
     app.include_router(routes_dashboard.router)
     app.include_router(routes_explain.router)
+    app.include_router(routes_reports.router)
 
     @app.on_event("startup")
     def startup() -> None:

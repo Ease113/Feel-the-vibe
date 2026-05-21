@@ -13,7 +13,9 @@ dependencies = [
   "pydantic>=2.6",
   "pandas>=2.0",
   "xgboost>=2.0",
-  "ortools>=9.8"
+  "ortools>=9.8",
+  "google-genai>=0.3",
+  "python-dotenv>=1.0"
 ]
 
 [project.optional-dependencies]
