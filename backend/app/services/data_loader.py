@@ -79,6 +79,33 @@ class DataLoader:
             "context_version": "context-v1",
         }
 
+    def merge_operating_context(
+        self,
+        plan_id: str,
+        override: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        """plan_context.json 기본값에 요청 override를 덮어쓴 컨텍스트 dict를 반환한다.
+
+        override는 shift, crew_size 두 키만 인식하며 None이거나 키가 없으면 기본값을
+        유지한다. dropdown으로 노출되지 않는 worker_skill, equipment_condition 등
+        다른 컨텍스트 필드는 plan_context 값을 보존한다.
+
+        Args:
+            plan_id: 기본 컨텍스트를 조회할 plan_id.
+            override: 사용자 입력 override. shift, crew_size 키만 반영한다.
+
+        Returns:
+            merge된 운영 컨텍스트 dict. 입력이 None이면 plan_context 원본을 그대로 반환.
+        """
+        base = self.get_plan_context(plan_id)
+        if not override:
+            return base
+        merged = dict(base)
+        for key in ("shift", "crew_size"):
+            if override.get(key) is not None:
+                merged[key] = override[key]
+        return merged
+
     def get_rules(self) -> dict[str, Any]:
         """sequence_rules.json에서 색상 전환 규칙 목록과 버전 정보를 반환한다."""
         path = self.data_dir / "sequence_rules.json"

@@ -2,12 +2,18 @@ import csv
 import json
 import math
 import random
+import sys
 from collections import defaultdict
 from datetime import date, timedelta
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RAW_DIR = PROJECT_ROOT / "backend" / "app" / "data" / "raw"
+
+# 학습 데이터 생성 시 야간 작업 비용 가산 계수를 추론 경로(CostPredictor)와
+# 단일 진실원천으로 묶는다. docs/design/operating-context-cost-multiplier.md Decision 4.
+sys.path.insert(0, str(PROJECT_ROOT / "backend"))
+from app.services.cost_predictor import NIGHT_SHIFT_MULTIPLIER  # noqa: E402
 
 RANDOM_SEED = 42
 TARGET_TOTAL = 1500
@@ -116,7 +122,7 @@ def transition_cost(
     skill_factor = 1.5 - float(context["worker_skill"])
     equip_factor = 1.4 - float(context["equipment_condition"])
     clean_factor = 1.0 + int(context["days_since_last_clean"]) * 0.08
-    shift_factor = 1.15 if context["shift"] == "night" else 1.0
+    shift_factor = NIGHT_SHIFT_MULTIPLIER if context["shift"] == "night" else 1.0
 
     setup_time = _clip(
         (10.0 + pigment_delta * 30.0) * skill_factor * equip_factor
