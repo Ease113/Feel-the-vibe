@@ -14,8 +14,9 @@ import {
   applyPredictResponse,
   mergeGetPlanData,
 } from '../api/mappers';
-import type { DecisionPageState, PriorityProfile } from '../api/types';
+import type { DecisionPageState, OperatingContext, PriorityProfile } from '../api/types';
 import { INITIAL_DECISION_PAGE_STATE } from '../api/types';
+import { prioritiesEqual } from '../utils/priorityPresets';
 
 const DEMO_PLAN_ID = 'demo-plan-001';
 
@@ -120,14 +121,26 @@ export function useDecisionPage() {
     void runPredict(recommendedSequence, nextSequence, priorityProfile);
   }, []);
 
-  // ── 우선순위 변경 ──────────────────────────────────────────────
+  // ── 평가 조건 적용 ─────────────────────────────────────────────
 
-  /** 5축 우선순위 변경 후 POST /predict (recommendedSequence 불변) */
-  const handlePriorityChange = useCallback((profile: PriorityProfile) => {
-    const { recommendedSequence, currentSequence } = stateRef.current;
-    setState(prev => ({ ...prev, priorityProfile: profile, isPredicting: true }));
-    void runPredict(recommendedSequence, currentSequence, profile);
-  }, []);
+  /** draft 확정 — 컨텍스트는 화면용, 우선순위 변경 시에만 POST /predict */
+  const handleApplyEvaluationConditions = useCallback(
+    (operatingContext: OperatingContext, priorityProfile: PriorityProfile) => {
+      const { recommendedSequence, currentSequence, priorityProfile: prevProfile } =
+        stateRef.current;
+      const priorityChanged = !prioritiesEqual(priorityProfile, prevProfile);
+      setState(prev => ({
+        ...prev,
+        operatingContext,
+        priorityProfile,
+        isPredicting: priorityChanged,
+      }));
+      if (priorityChanged) {
+        void runPredict(recommendedSequence, currentSequence, priorityProfile);
+      }
+    },
+    [],
+  );
 
   // ── 확정 ───────────────────────────────────────────────────────
 
@@ -220,7 +233,7 @@ export function useDecisionPage() {
     handleDragStart,
     handleDragCancel,
     handleDrop,
-    handlePriorityChange,
+    handleApplyEvaluationConditions,
     handleReset,
     handleCommit,
     handleCommitClose,

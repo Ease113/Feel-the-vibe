@@ -296,6 +296,7 @@ export function mergeGetPlanData(
     planItems: data.planItems,
     operatingContext: data.operatingContext,
     priorityProfile: data.defaultPriorityProfile,
+    factoryDefaultPriorityProfile: data.defaultPriorityProfile,
   };
 }
 

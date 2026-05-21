@@ -429,6 +429,7 @@ export default function DashboardPage() {
           <WeeklyReportPanel
             weeklySummary={weekly_summary}
             weeklyReport={weekly_report}
+            kpiTrend={kpi_trend}
             onRefresh={() => loadDashboard(recentPage)}
           />
         </div>

@@ -24,7 +24,7 @@ export default function DecisionPage() {
   const {
     state,
     handleEvaluationPanelToggle,
-    handlePriorityChange,
+    handleApplyEvaluationConditions,
     handleDragStart,
     handleDragCancel,
     handleDrop,
@@ -40,6 +40,7 @@ export default function DecisionPage() {
     planItems,
     operatingContext,
     priorityProfile,
+    factoryDefaultPriorityProfile,
     recommendedSequence,
     currentSequence,
     transitionCosts,
@@ -78,27 +79,39 @@ export default function DecisionPage() {
       <header className="top-bar">
         <div>
           <div className="top-plan">demo-plan-001 · {operatingContext.lineId}</div>
-          <h1 className="top-title">생산 순서 의사결정</h1>
-          {commitBlockReason && (
-            <div className="top-status">
-              <span className="status-warn">{commitBlockReason}</span>
-            </div>
-          )}
-          {!commitBlockReason && !isOptimizing && currentScore !== null && recommendedScore !== null && (
-            <div className="top-status">
-              <span className={currentScore > recommendedScore ? 'status-warn' : 'status-ok'}>
-                {fmtDiffPct(currentScore, recommendedScore)}
-              </span>
-              {highRiskCount > 0 && (
-                <>
-                  <span className="status-sep">·</span>
-                  <span className="status-warn">고위험 전환 {highRiskCount}건</span>
-                </>
+          <div className="top-title-row">
+            <h1 className="top-title">생산 순서 의사결정</h1>
+            <div className="top-meta" aria-live="polite">
+              {isOptimizing && (
+                <span className="top-meta-loading">추천 순서 생성 중…</span>
               )}
-              <span className="status-sep">·</span>
-              <span className="status-ok">확정 가능</span>
+              {!isOptimizing && commitBlockReason && (
+                <span className="status-warn">{commitBlockReason}</span>
+              )}
+              {!isOptimizing &&
+                !commitBlockReason &&
+                currentScore !== null &&
+                recommendedScore !== null && (
+                  <>
+                    <span
+                      className={
+                        currentScore > recommendedScore ? 'status-warn' : 'status-ok'
+                      }
+                    >
+                      {fmtDiffPct(currentScore, recommendedScore)}
+                    </span>
+                    {highRiskCount > 0 && (
+                      <>
+                        <span className="status-sep">·</span>
+                        <span className="status-warn">고위험 전환 {highRiskCount}건</span>
+                      </>
+                    )}
+                    <span className="status-sep">·</span>
+                    <span className="status-ok">확정 가능</span>
+                  </>
+                )}
             </div>
-          )}
+          </div>
         </div>
         <div className="top-right">
           <span className={`badge-draft${workflowState === 'committed' ? ' badge-committed' : ''}`}>
@@ -107,17 +120,17 @@ export default function DecisionPage() {
         </div>
       </header>
 
-      {isOptimizing && (
-        <p className="decision-page-loading">추천 순서 생성 중…</p>
-      )}
-
       <EvaluationConditionsPanel
         operatingContext={operatingContext}
         priorityProfile={priorityProfile}
+        factoryDefaultPriorityProfile={factoryDefaultPriorityProfile}
+        appliedWeights={appliedWeights}
         isExpanded={isEvaluationPanelExpanded}
         isPredicting={isPredicting}
         onToggle={handleEvaluationPanelToggle}
-        onPriorityChange={handlePriorityChange}
+        onApply={({ operatingContext: ctx, priorityProfile: profile }) =>
+          handleApplyEvaluationConditions(ctx, profile)
+        }
       />
 
       <div className="decision-body">

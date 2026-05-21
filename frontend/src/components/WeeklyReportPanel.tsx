@@ -1,18 +1,39 @@
-import { ExternalLink, FileText, Sparkles } from 'lucide-react';
+import { FileText, RotateCcw, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { postWeeklyReport, postWeeklySummary } from '../api/client';
-import type { GenerationMode, WeeklyReportPayload } from '../api/types';
+import type { GenerationMode, KpiTrendPoint, WeeklyReportPayload } from '../api/types';
 import { generationModeLabel } from '../utils/generationModeLabel';
 import WeeklyReportModal from './WeeklyReportModal';
 
 interface Props {
   weeklySummary: string | null;
   weeklyReport: WeeklyReportPayload | null;
+  kpiTrend: KpiTrendPoint[];
   onRefresh: () => Promise<void>;
 }
 
 function fmtPeriod(start: string, end: string) {
   return `${start} ~ ${end}`;
+}
+
+const SUMMARY_MODE_STORAGE_KEY = 'ftv-weekly-summary-generation-mode';
+
+function readPersistedSummaryGenerationMode(): GenerationMode | null {
+  try {
+    const raw = sessionStorage.getItem(SUMMARY_MODE_STORAGE_KEY);
+    if (raw === 'gemini' || raw === 'cli' || raw === 'template') return raw;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function persistSummaryGenerationMode(mode: GenerationMode) {
+  try {
+    sessionStorage.setItem(SUMMARY_MODE_STORAGE_KEY, mode);
+  } catch {
+    /* ignore */
+  }
 }
 
 /**
@@ -26,6 +47,7 @@ function fmtPeriod(start: string, end: string) {
 export default function WeeklyReportPanel({
   weeklySummary,
   weeklyReport,
+  kpiTrend,
   onRefresh,
 }: Props) {
   const [localSummary, setLocalSummary] = useState<string | null>(null);
@@ -45,6 +67,7 @@ export default function WeeklyReportPanel({
       const res = await postWeeklySummary();
       setLocalSummary(res.summary);
       setSummaryMode(res.generation_mode);
+      persistSummaryGenerationMode(res.generation_mode);
       await reloadDashboard();
     } catch {
       setError('주간 요약 생성에 실패했습니다.');
@@ -70,6 +93,11 @@ export default function WeeklyReportPanel({
 
   // localSummary 우선, 없으면 서버 캐시값 (보고서 생성 후 오염됐을 수 있음)
   const displaySummary = localSummary ?? weeklySummary;
+  const summaryGenerationMode: GenerationMode | null =
+    summaryMode
+    ?? weeklyReport?.generation_mode
+    ?? readPersistedSummaryGenerationMode()
+    ?? (displaySummary != null ? 'gemini' : null);
   const period = weeklyReport != null
     ? fmtPeriod(weeklyReport.period_start, weeklyReport.period_end)
     : null;
@@ -81,9 +109,12 @@ export default function WeeklyReportPanel({
       {/* ── 상단: 주간 요약 ── */}
       <div className="weekly-head">
         <div className="weekly-label">주간 요약</div>
-        {summaryMode != null && displaySummary != null && (
-          <span className="generation-badge">
-            {generationModeLabel(summaryMode)}
+        {displaySummary != null && summaryGenerationMode != null && (
+          <span
+            className="generation-badge"
+            title={weeklyReport?.model_version}
+          >
+            {generationModeLabel(summaryGenerationMode)}
           </span>
         )}
       </div>
@@ -146,7 +177,6 @@ export default function WeeklyReportPanel({
                 disabled={busy}
                 onClick={() => setReportModalOpen(true)}
               >
-                <ExternalLink size={11} />
                 확인하기
               </button>
               <button
@@ -155,7 +185,7 @@ export default function WeeklyReportPanel({
                 disabled={busy}
                 onClick={() => void handleWeeklyReport()}
               >
-                <FileText size={11} />
+                <RotateCcw size={11} />
                 {loadingReport ? '생성 중…' : '재생성'}
               </button>
             </>
@@ -179,6 +209,7 @@ export default function WeeklyReportPanel({
         <WeeklyReportModal
           report={weeklyReport}
           weeklySummary={displaySummary}
+          kpiTrend={kpiTrend}
           onClose={() => setReportModalOpen(false)}
         />
       )}

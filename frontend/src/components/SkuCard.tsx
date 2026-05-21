@@ -1,9 +1,6 @@
 import type { ReactNode } from 'react';
 import type { PlanItem } from '../api/types';
-import {
-  formatSkuMetaHoverDetail,
-  formatSkuMetaInline,
-} from '../utils/skuLevels';
+import { formatSkuMetaInline } from '../utils/skuLevels';
 
 const CATEGORY_KO: Record<string, string> = {
   light:   '밝은색',
@@ -44,19 +41,20 @@ export default function SkuCard({
   trailing,
 }: Props) {
   const categoryLabel = subTag ?? CATEGORY_KO[item.category] ?? item.category;
-  const metaInline = formatSkuMetaInline(item.glossLevel, item.viscosityLevel);
-  const metaHover = formatSkuMetaHoverDetail(
+  const metaInline = formatSkuMetaInline(
+    item.glossLevel,
+    item.viscosityLevel,
     item.pigmentIntensity,
-    item.brightnessLevel,
-    item.colorFamily,
   );
 
   const ariaBase = `${item.skuName} ${item.quantity}L, ${categoryLabel}`;
-  const ariaLabel = hasOutgoingRisk
-    ? `${ariaBase}, 위험 전환 출발`
-    : metaInline
-      ? `${ariaBase}, ${metaInline}`
-      : undefined;
+  const ariaLabel = [
+    ariaBase,
+    hasOutgoingRisk ? '위험 전환 출발' : null,
+    metaInline,
+  ]
+    .filter(Boolean)
+    .join(', ');
 
   const cardClass = [
     'sku-card',
@@ -69,11 +67,7 @@ export default function SkuCard({
     .join(' ');
 
   return (
-    <article
-      className={cardClass}
-      title={metaHover}
-      {...(ariaLabel ? { 'aria-label': ariaLabel } : {})}
-    >
+    <article className={cardClass} aria-label={ariaLabel}>
       {index !== undefined ? (
         <span className="sku-slot-num">{index}</span>
       ) : null}

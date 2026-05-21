@@ -25,9 +25,9 @@ const DIMS: DimDef[] = [
 ];
 
 const SELECT_BADGE_COLORS = ['#0369a1', '#dc2626', '#16a34a'] as const;
-const SCALE_LOW = '#ecfdf5';
-const SCALE_MID = '#f4f4f5';
-const SCALE_HIGH = '#fee2e2';
+const SCALE_LOW = '#bbf7d0';
+const SCALE_MID = '#e5e7eb';
+const SCALE_HIGH = '#fecaca';
 
 function shortId(id: string) {
   return id.length > 8 ? id.slice(-6) : id;

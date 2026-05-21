@@ -34,6 +34,18 @@ export const SEQUENCE_RULE_COPY: Record<string, SequenceRuleCopy> = {
   },
 };
 
+/** 주간 보고서·문서용 짧은 룰 라벨 (reason 본문과 중복되지 않음). */
+export const SEQUENCE_RULE_SHORT_LABEL: Record<string, string> = {
+  'SR-001': '검정 → 흰색 전환',
+  'SR-002': '어두운색 → 밝은색 전환',
+  'SR-003': '메탈/특수광택 → 일반색 전환',
+  'SR-004': '메탈/특수광택 → 밝은색 전환',
+};
+
+export function getSequenceRuleShortLabel(ruleId: string): string {
+  return SEQUENCE_RULE_SHORT_LABEL[ruleId] ?? ruleId;
+}
+
 export function getSequenceRuleCopy(ruleId: string): SequenceRuleCopy | null {
   return SEQUENCE_RULE_COPY[ruleId] ?? null;
 }

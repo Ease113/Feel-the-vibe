@@ -29,26 +29,15 @@ export function mapSkuPhysicalLevels(
   return { glossLevel, viscosityLevel, pigmentIntensity, brightnessLevel };
 }
 
-/** 카드 상시 메타: 광택·점도만 (`광택 80 · 점도 30`). */
+/** 카드 상시 메타: 광택·점도·안료 (`광택 80 · 점도 30 · 안료 10`). */
 export function formatSkuMetaInline(
   glossLevel?: number,
   viscosityLevel?: number,
+  pigmentIntensity?: number,
 ): string | null {
   const parts: string[] = [];
   if (glossLevel !== undefined) parts.push(`광택 ${glossLevel}`);
   if (viscosityLevel !== undefined) parts.push(`점도 ${viscosityLevel}`);
-  return parts.length > 0 ? parts.join(' · ') : null;
-}
-
-/** hover tooltip: 안료·밝기·색상군. */
-export function formatSkuMetaHoverDetail(
-  pigmentIntensity?: number,
-  brightnessLevel?: number,
-  colorFamily?: string,
-): string | undefined {
-  const parts: string[] = [];
   if (pigmentIntensity !== undefined) parts.push(`안료 ${pigmentIntensity}`);
-  if (brightnessLevel !== undefined) parts.push(`밝기 ${brightnessLevel}`);
-  if (colorFamily) parts.push(`색상군 ${colorFamily}`);
-  return parts.length > 0 ? parts.join(' · ') : undefined;
+  return parts.length > 0 ? parts.join(' · ') : null;
 }
