@@ -268,7 +268,7 @@ export default function EvaluationConditionsPanel({
                 운영 우선순위
                 <InfoTip label="운영 우선순위 안내">
                   <p>
-                    항목별 중요도는 <strong>목적 점수에 각 비용 차원을 얼마나 실지</strong>를
+                    항목별 중요도는 <strong>종합 점수에 각 비용 차원을 얼마나 실지</strong>를
                     공장 공통 5단계로 조절합니다. 반영 비중은 적용 후 합 100%로
                     재정규화됩니다.
                   </p>
@@ -352,7 +352,7 @@ export default function EvaluationConditionsPanel({
                         <div
                           className="likert-track"
                           role="radiogroup"
-                          aria-label={`${PRIORITY_AXIS_KO[axis]} 목적 점수 반영 정도`}
+                          aria-label={`${PRIORITY_AXIS_KO[axis]} 종합 점수 반영 정도`}
                         >
                           {PRIORITY_LABELS.map(lbl => (
                             <label
@@ -387,7 +387,7 @@ export default function EvaluationConditionsPanel({
 
               {!weightRows && (
                 <p className="pri-applied-weights-hint">
-                  평가 조건 적용 후 목적 점수 반영 비중이 표시됩니다.
+                  평가 조건 적용 후 종합 점수 반영 비중이 표시됩니다.
                 </p>
               )}
 
@@ -400,7 +400,7 @@ export default function EvaluationConditionsPanel({
               {weightRows && !isDirty && (
                 <div className="pri-applied-weights">
                   <div className="pri-applied-weights-hd">
-                    목적 점수 반영 비중
+                    종합 점수 반영 비중
                     <InfoTip label="반영 비중 안내">
                       우선순위 적용 후 합계 100%로 재정규화된 가중치입니다.
                       모든 사용자에게 동일한 계산식으로 산출됩니다.

@@ -26,7 +26,7 @@ export default function WeeklyReportMiniTrend({ points }: Props) {
         <thead>
           <tr>
             <th scope="col">확정일</th>
-            <th scope="col">목적 점수</th>
+            <th scope="col">종합 점수</th>
             <th scope="col">세척비용</th>
           </tr>
         </thead>
@@ -40,7 +40,7 @@ export default function WeeklyReportMiniTrend({ points }: Props) {
           ))}
         </tbody>
       </table>
-      <p className="weekly-report-trend__hint">목적 점수는 낮을수록 유리합니다.</p>
+      <p className="weekly-report-trend__hint">종합 점수는 낮을수록 유리합니다.</p>
     </div>
   );
 }

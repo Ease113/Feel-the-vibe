@@ -21,6 +21,7 @@ import {
   operatingContextEqual,
   toOperatingContextOverride,
 } from '../utils/operatingContext';
+import { lookupOverrideSequence } from '../utils/priorityOverride';
 import { prioritiesEqual } from '../utils/priorityPresets';
 
 const DEMO_PLAN_ID = 'demo-plan-001';
@@ -167,18 +168,31 @@ export function useDecisionPage() {
               operatingContext: toOperatingContextOverride(operatingContext),
             });
 
-            let newRecommendedSequence = recommendedSequence;
+            // 시연용 프론트엔드 override: backend가 모든 프리셋에 같은 sequence를
+            // 돌려주는 한계를 보완하기 위해 quality·throughput에 대해 큐레이션된
+            // 시퀀스로 교체합니다. 백엔드는 무수정.
+            // 자세한 결정 근거: docs/design/priority-frontend-override.md.
+            const { factoryDefaultPriorityProfile } = stateRef.current;
+            const override = lookupOverrideSequence(
+              DEMO_PLAN_ID,
+              priorityProfile,
+              factoryDefaultPriorityProfile,
+              planItems.map(i => i.planItemId),
+            );
+            const newRecommendedSequence =
+              override ?? optimizeResult.recommended_sequence;
+
             setState(prev => {
               try {
                 const applied = applyOptimizeResponse(prev, optimizeResult);
-                newRecommendedSequence = applied.recommendedSequence;
                 const comparisonDiffs = deriveSequenceDiffs(
-                  applied.recommendedSequence,
+                  newRecommendedSequence,
                   prev.currentSequence,
                   prev.planItems,
                 );
                 return {
                   ...applied,
+                  recommendedSequence: newRecommendedSequence,
                   currentSequence: prev.currentSequence,
                   comparisonDiffs,
                 };

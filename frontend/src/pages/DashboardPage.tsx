@@ -177,7 +177,7 @@ export default function DashboardPage() {
           sub="POST /decisions 저장 기준"
         />
         <SummaryKpiCard
-          label="평균 목적 점수"
+          label="평균 종합 점수"
           value={
             dashboard_summary.average_objective_score > 0
               ? fmtScore(dashboard_summary.average_objective_score)
@@ -305,7 +305,7 @@ export default function DashboardPage() {
                     <tr>
                       <th scope="col">결정 ID</th>
                       <th scope="col">계획</th>
-                      <th scope="col">목적 점수</th>
+                      <th scope="col">종합 점수</th>
                       <th scope="col">룰 경고</th>
                       <th scope="col">검토</th>
                       <th scope="col">확정 시각</th>

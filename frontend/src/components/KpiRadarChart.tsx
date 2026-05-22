@@ -27,7 +27,7 @@ const DIM_LABELS: Record<DimKey, string> = {
   wash_cost:      '세척비용',
   downtime:       '정지시간',
   packaging_time: '패키징시간',
-  sequence_risk:  '순서패널티',
+  sequence_risk:  '규칙 위반 비용',
 };
 const DIMS = Object.keys(DIM_LABELS) as DimKey[];
 

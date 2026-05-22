@@ -45,7 +45,7 @@ const SERIES: SeriesDef[] = [
   { key: 'wash_cost',       label: '세척비용',   color: '#5A9691', unitGroup: 'won',   formatValue: v => `${formatWon(v)}원`,        defaultOn: true  },
   { key: 'downtime',        label: '정지시간',   color: '#A87A82', unitGroup: 'min',   formatValue: v => `${formatMinutes(v)} 분`,  defaultOn: false },
   { key: 'packaging_time',  label: '패키징시간', color: '#5C8F75', unitGroup: 'min',   formatValue: v => `${formatMinutes(v)} 분`,  defaultOn: false },
-  { key: 'sequence_risk',   label: '순서패널티', color: '#767E8A', unitGroup: 'score', formatValue: v => `${formatScore(v)} pt`, defaultOn: true  },
+  { key: 'sequence_risk',   label: '규칙 위반 비용', color: '#767E8A', unitGroup: 'score', formatValue: v => `${formatScore(v)} pt`, defaultOn: true  },
 ];
 
 const UNIT_LABEL: Record<UnitGroup, string> = {

@@ -195,7 +195,7 @@ export default function TransitionAnalysisTable({
                       </div>
                     </div>
                     <div className="exp-item">
-                      <div className="exp-lbl">순서 패널티</div>
+                      <div className="exp-lbl">규칙 위반 비용</div>
                       <div className="exp-val exp-val--mono">
                         {formatScore(tc.sequencePenalty)}
                       </div>

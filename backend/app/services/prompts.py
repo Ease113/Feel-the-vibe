@@ -57,13 +57,13 @@ def _explain_template_fallback(payload: dict[str, Any]) -> dict[str, Any]:
     objective_delta = comparison.get("objective_delta")
     if objective_delta is not None:
         if objective_delta > 0:
-            lines.append(f"현재 순서는 추천안보다 목적 점수가 {objective_delta:.2f} 높습니다.")
+            lines.append(f"현재 순서는 추천안보다 종합 점수가 {objective_delta:.2f} 높습니다.")
         elif objective_delta < 0:
             lines.append(
-                f"현재 순서는 추천안보다 목적 점수가 {abs(objective_delta):.2f} 낮습니다."
+                f"현재 순서는 추천안보다 종합 점수가 {abs(objective_delta):.2f} 낮습니다."
             )
         else:
-            lines.append("현재 순서는 추천안과 목적 점수가 동일합니다.")
+            lines.append("현재 순서는 추천안과 종합 점수가 동일합니다.")
 
     high_warning = next(
         (warning for warning in warnings if warning.get("severity") == "HIGH"),
@@ -122,7 +122,7 @@ def _weekly_summary_template_fallback(payload: dict[str, Any]) -> dict[str, Any]
     avg = snapshot.get("average_objective_score", 0.0)
     return {
         "summary": (
-            f"이번 주 {count}건의 결정이 저장되었고 평균 목적 점수는 {avg:.2f}입니다. "
+            f"이번 주 {count}건의 결정이 저장되었고 평균 종합 점수는 {avg:.2f}입니다. "
             f"고위험 색상 전환은 {high}건 감지되었습니다."
         )
     }
@@ -167,7 +167,7 @@ def _weekly_report_template_fallback(payload: dict[str, Any]) -> dict[str, Any]:
     avg = snapshot.get("average_objective_score", 0.0)
     top_risk = sorted(risk.items(), key=lambda item: item[1], reverse=True)[:3]
     findings: list[str] = [
-        f"이번 주 {count}건의 결정이 확정되었고 평균 목적 점수는 {avg:.2f}입니다.",
+        f"이번 주 {count}건의 결정이 확정되었고 평균 종합 점수는 {avg:.2f}입니다.",
     ]
     if high > 0:
         findings.append(f"고위험 색상 전환이 {high}건 감지되었습니다.")
@@ -187,7 +187,7 @@ def _weekly_report_template_fallback(payload: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "summary": (
-            f"이번 주 {count}건의 결정이 확정되었고 평균 목적 점수는 {avg:.2f}, "
+            f"이번 주 {count}건의 결정이 확정되었고 평균 종합 점수는 {avg:.2f}, "
             f"고위험 전환은 {high}건입니다. 세부 발견과 권장 사항은 아래를 참고해 주세요."
         ),
         "key_findings": findings,

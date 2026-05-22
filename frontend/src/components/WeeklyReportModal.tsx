@@ -221,7 +221,7 @@ export default function WeeklyReportModal({
                   </span>
                 </div>
                 <div className="weekly-report-modal__kpi">
-                  <span className="weekly-report-modal__kpi-label">평균 목적 점수</span>
+                  <span className="weekly-report-modal__kpi-label">평균 종합 점수</span>
                   <span className="weekly-report-modal__kpi-val">
                     {kpi.decision_count > 0
                       ? fmtKpiScore(kpi.average_objective_score)

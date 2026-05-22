@@ -88,7 +88,7 @@ export default function KpiSummaryBar({
 
         <div className="kpi-grid">
           <div className="kpi-mini-card">
-            <p className="kpi-mini-label">가중 총비용</p>
+            <p className="kpi-mini-label">예상 전환 비용</p>
             <p className="kpi-mini-value">
               {totalWeightedCost !== null
                 ? formatScorePt(totalWeightedCost)
@@ -97,7 +97,7 @@ export default function KpiSummaryBar({
           </div>
 
           <div className="kpi-mini-card">
-            <p className="kpi-mini-label">순서 패널티</p>
+            <p className="kpi-mini-label">규칙 위반 비용</p>
             <p className="kpi-mini-value">
               {sequencePenalty !== null
                 ? formatScorePt(sequencePenalty)

@@ -167,11 +167,11 @@ class SequenceEvaluator:
             "is_better_than_baseline": delta < 0,
         }
         if delta == 0:
-            summary = "현재 순서는 추천안과 동일한 목적 점수입니다."
+            summary = "현재 순서는 추천안과 동일한 종합 점수입니다."
         elif delta < 0:
-            summary = f"현재 순서는 추천안보다 목적 점수가 {abs(delta):.2f} 낮습니다."
+            summary = f"현재 순서는 추천안보다 종합 점수가 {abs(delta):.2f} 낮습니다."
         else:
-            summary = f"현재 순서는 추천안보다 목적 점수가 {delta:.2f} 높습니다."
+            summary = f"현재 순서는 추천안보다 종합 점수가 {delta:.2f} 높습니다."
 
         return {
             "current_evaluation": current,

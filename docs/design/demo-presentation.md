@@ -570,6 +570,223 @@ graph LR
 
 ---
 
+## 9. 시연 시나리오 — KPI 누적·비교·주간보고서
+
+본 섹션은 시연자가 실제 화면에서 그대로 따라 할 수 있는 **클릭·응답 단위 시나리오**입니다. 시나리오 A·B는 한 번 시연으로 자연스럽게 이어지고, 시나리오 C는 별도 클릭으로 LLM 명시 호출을 보여줍니다.
+
+### 9-1. 사전 상태 — 결정 5건 누적
+
+발표 직전 시연 부스에서 미리 확정해 두는 결정 세트입니다. 모두 `demo-plan-001` 기준이며 운영 컨텍스트와 우선순위만 살짝씩 바꿔 KPI에 의미 있는 분산이 생기도록 합니다.
+
+| # | 운영 컨텍스트 | 우선순위 프리셋 | 확정 순서 | 메모 |
+|---|---|---|---|---|
+| DEC-A | day · 3명 | `standard` | 추천 그대로 | "기본 운영 조건 baseline" |
+| DEC-B | night · 3명 | `standard` | 추천 그대로 | "야간 동일 순서 — 균일 배수 확인용" |
+| DEC-C | day · 5명 | `quality` | 추천 그대로 | "세척 우선 — 위험 격리" |
+| DEC-D | day · 3명 | `throughput` | 추천 그대로 | "납기 우선 — 가동 위주" |
+| DEC-E | day · 3명 | `quality` | D&D로 1쌍 swap | "운영자 판단 수정 — D&D 흔적" |
+
+위 5건이 SQLite `decisions` 테이블에 저장되어 있어야 시나리오가 풍부합니다. 시나리오 시작 전 `GET /dashboard`로 `decision_count = 5` 확인.
+
+### 9-2. 시나리오 A — 결정 ID로 불러와 히트맵·그래프로 비교 (2분)
+
+> **메시지:** "같은 plan, 다른 가치판단/운영조건 → 다른 KPI 모양. 그 차이를 한 화면에서 즉시 비교."
+
+```text
+[1] 대시보드 진입
+    GET /dashboard → dashboard_summary, kpi_trend(5건), risk_patterns, recent_decisions
+    화면: SummaryKpiCard 3종 (decision_count=5, avg_objective_score, high_risk_count)
+         + KpiHeatmap (행=7차원, 열=5건)
+         + KpiRadarChart (대기 상태)
+         + Recent decisions 페이지네이션
+
+[2] Recent decisions에서 결정 ID를 보고 "DEC-C"·"DEC-D"·"DEC-E" 세 건 선택
+    클릭 동선: KpiHeatmap의 결정 열 헤더를 차례로 3번 클릭
+    상태 변화: selectedIds = [DEC-C, DEC-D, DEC-E]
+              열 헤더에 1·2·3 번호 배지가 색깔별로 표시
+              선택되지 않은 결정 열은 dim 처리
+
+[3] 히트맵으로 차원별 차이 즉시 파악
+    행별 min/max 정규화로 같은 차원에서 어느 결정이 높은/낮은지 색으로 보임
+    발표 멘트:
+      "wash_cost 행을 보세요. DEC-C(quality)는 가장 진한 빨강이지만,
+       DEC-D(throughput)는 같은 plan인데 초록입니다. 같은 데이터,
+       다른 우선순위 → 다른 비용 모양."
+
+[4] 위쪽 KpiRadarChart로 시선 이동
+    같은 selectedIds 3건이 자동 Radar로 그려짐 (Recharts)
+    7개 축 = setup_time / labor_cost / material_loss / wash_cost
+            / downtime / packaging_time / sequence_risk
+    발표 멘트:
+      "Radar에서 보면 DEC-E는 wash·material 축이 안쪽으로 들어와
+       있어요 — 운영자가 D&D로 위험 전환을 회피한 흔적입니다."
+
+[5] (선택) DashboardCharts BarChart 스크롤
+    objective_score + 7차원 누적 BarChart에서 5건의 시계열 누적이 표시
+    클릭 동선: 누적 BarChart에서 dimension toggle (필요 시)
+```
+
+핵심 데이터 흐름:
+
+```mermaid
+sequenceDiagram
+  participant U as 운영자
+  participant Dash as DashboardPage
+  participant API as GET /dashboard
+  participant Heat as KpiHeatmap
+  participant Radar as KpiRadarChart
+
+  U->>Dash: 대시보드 진입
+  Dash->>API: GET /dashboard
+  API-->>Dash: kpi_trend[5] + risk_patterns + recent_decisions
+  Dash->>Heat: 7차원 × 5결정 데이터 전달
+  U->>Heat: DEC-C 헤더 클릭
+  U->>Heat: DEC-D 헤더 클릭
+  U->>Heat: DEC-E 헤더 클릭
+  Heat-->>Dash: selectedIds = [DEC-C, DEC-D, DEC-E]
+  Dash->>Radar: 같은 selectedIds 전달
+  Radar-->>U: 3건 동시 Radar 비교 표시
+```
+
+### 9-3. 시나리오 B — 위험 패턴 추적 (1분)
+
+> **메시지:** "어느 규칙이 자주 깨지는지 → 어느 결정이 기여했는지 한 클릭 안에서 확인."
+
+```text
+[1] 대시보드 우측 risk_patterns 리스트
+    GET /dashboard 응답의 risk_patterns 그대로 표시
+    예) SR-002(dark→light) 3건 / SR-004(metal·special→light) 2건
+
+[2] SR-004 항목 클릭 → recent_decisions 목록에서 해당 룰을 위반한 결정이 강조
+    (현재 구현은 reason copy + count 표시. 향후 P1에서 클릭 필터 강화 예정)
+
+[3] reviewed 토글
+    Recent decisions 행의 체크박스로 reviewed=true 토글
+    PATCH /decisions/{id}/reviewed
+    dashboard_summary가 즉시 갱신됨 (백엔드 재집계)
+
+    발표 멘트:
+      "주간 리뷰 회의에서 '이 결정 검토 완료'를 체크하면 다음 주
+       대시보드에서 자동으로 제외됩니다."
+```
+
+### 9-4. 시나리오 C — 누적된 KPI를 LLM 주간 보고서로 출력 (1.5분)
+
+> **메시지:** "KPI 누적은 단순 로그가 아니라 'LLM이 자동으로 요약·권고할 수 있는 자원'. 단, 자동 호출은 하지 않고 명시 버튼으로만."
+
+```text
+[1] 대시보드 우측 WeeklyReportPanel
+    초기 상태: weekly_report = null (GET /dashboard 응답에서 항상 null)
+    이유: LLM은 조회 API에 임베드하지 않음 (memory feedback_llm_no_auto_call)
+    버튼: "주간 보고서 생성"
+
+[2] 운영자가 "주간 보고서 생성" 버튼 클릭
+    POST /reports/weekly
+    Request body: { week_start: "2026-05-18", week_end: "2026-05-22" }
+    내부 처리:
+      → DashboardService가 해당 주 결정 5건을 집계
+      → ExplanationService.build_weekly_report() 호출
+      → LLM provider chain: Gemini → claude CLI → template
+      → weekly_report_cache 테이블에 결과 저장
+
+[3] 응답 도착 (~2~5초)
+    Response: {
+      "week_start": "2026-05-18", "week_end": "2026-05-22",
+      "decision_count": 5,
+      "highlights": [
+        "이번 주 평균 objective_score는 52,140으로 전주 대비 -3.2%",
+        "wash_cost 우선순위가 높았던 DEC-C/DEC-E가 비용을 4.8% 끌어내림",
+        "SR-002 위반 3건 — 어두운색→밝은색 전환이 반복적으로 발견됨"
+      ],
+      "recommendations": [
+        "다음 주 schedule에서 dark→light 전환을 최소화하는 순서를 우선 검토하세요",
+        "야간조 결정(DEC-B)은 균일 배수로 +15% 비용 — 인력 +1명 시뮬레이션 권장"
+      ],
+      "generation_mode": "gemini",   // 또는 "cli" / "template"
+      "model_version": "xgboost-v1",
+      "rule_version":  "rules-2026.05.v1"
+    }
+
+[4] UI 표시
+    WeeklyReportPanel이 highlights·recommendations를 카드로 렌더
+    generation_mode 필드를 작은 배지로 노출
+      "Gemini로 생성됨" / "CLI로 생성됨" / "템플릿으로 생성됨"
+
+[5] 동일 주 두 번째 호출 → 캐시 응답
+    POST /reports/weekly (같은 week_start/week_end)
+    내부 처리: weekly_report_cache hit → LLM 재호출 없음
+    응답에 cached: true 필드 추가
+    발표 멘트:
+      "같은 주를 다시 부르면 LLM을 또 호출하지 않습니다. 캐시에 저장된
+       내용을 그대로 반환해 비용·지연을 최소화합니다."
+
+[6] (선택) LLM key 없는 환경 시연
+    backend/.env에서 SMARTFACTORY_LLM_API_KEY 제거 후 재호출
+    Provider chain이 Gemini → CLI → template 순서로 fallback
+    generation_mode = "template"로 표시되지만 문장 구조는 동일
+    발표 멘트:
+      "API key 없는 노트북에서도 같은 화면, 같은 한국어 1~3문장이
+       나옵니다. 시연을 깨뜨리지 않는 fallback."
+```
+
+데이터 흐름:
+
+```mermaid
+sequenceDiagram
+  participant U as 운영자
+  participant Panel as WeeklyReportPanel
+  participant API as POST /reports/weekly
+  participant Dash as DashboardService
+  participant Expl as ExplanationService
+  participant LLM as Provider chain
+  participant Cache as weekly_report_cache
+
+  U->>Panel: "주간 보고서 생성" 클릭
+  Panel->>API: { week_start, week_end }
+  API->>Cache: hit?
+  Cache-->>API: miss
+  API->>Dash: 해당 주 5결정 집계
+  Dash-->>API: KPI 트렌드 + risk 통계
+  API->>Expl: build_weekly_report(KPI)
+  Expl->>LLM: Gemini 시도
+  LLM-->>Expl: highlights + recommendations
+  Expl-->>API: weekly_report payload
+  API->>Cache: save (week_start, week_end, payload)
+  API-->>Panel: weekly_report
+  Panel-->>U: 카드 렌더 + generation_mode 배지
+```
+
+### 9-5. 시나리오 전체를 4분 안에 — 시연자 시간 배분
+
+| 구간 | 시간 | 무대 동작 |
+|---|---:|---|
+| 9-2 시나리오 A 시작 | 0:00~0:30 | 대시보드 진입, decision_count 5 확인 |
+| 히트맵 결정 3건 선택 | 0:30~1:30 | 헤더 3번 클릭, 색 차이 멘트 |
+| Radar 차트 강조 | 1:30~2:00 | "DEC-E의 회피 흔적" 멘트 |
+| 9-3 시나리오 B | 2:00~3:00 | risk_patterns 클릭, reviewed 토글 |
+| 9-4 시나리오 C 본체 | 3:00~4:00 | 주간 보고서 버튼 → highlights/recommendations 카드 + generation_mode 배지 |
+| (예비) cached/fallback 시연 | 4:00~4:30 | 시간 여유 시 캐시 hit 또는 template fallback |
+
+### 9-6. 시나리오와 코드 매핑
+
+| 시나리오 | 라우터 | 서비스 | 프론트 컴포넌트 |
+|---|---|---|---|
+| 9-2 결정 ID 비교 | `GET /dashboard` | `dashboard_service.py` | `DashboardPage.tsx`, `KpiHeatmap.tsx`, `KpiRadarChart.tsx`, `DashboardCharts.tsx` |
+| 9-3 위험 패턴·reviewed | `GET /dashboard`, `PATCH /decisions/{id}/reviewed` | `dashboard_service.py`, `decision_logger.py` | `DashboardPage.tsx`의 risk patterns 리스트·recent decisions |
+| 9-4 주간 보고서 | `POST /reports/weekly` | `weekly_report_service.py`, `explanation_service.py`, `llm_client.py` | `WeeklyReportPanel.tsx`, `WeeklyReportModal.tsx`, `WeeklyReportMiniTrend.tsx` |
+
+### 9-7. Q&A 대비 — 시나리오 관련 추가 답변
+
+| 질문 | 답변 요지 |
+|---|---|
+| 히트맵 색 정규화는 어떻게? | 행별 min/max로 0~1 정규화 후 3단 그라데이션. 같은 차원에서 결정 간 상대 위치만 표시 (절대값 비교는 BarChart로 보완) |
+| Radar 비교는 몇 개까지? | 최대 3건 — 4번째 클릭은 가장 오래된 선택을 자동 해제 (UI 안내 표시) |
+| 주간 보고서가 LLM 답변에 영향을 안 받게 하려면? | provider chain에서 template fallback이 항상 마지막 단계. key 제거하면 결정론적 한국어 1~3문장 보장 |
+| 같은 주를 두 번 부르면 LLM 호출이 두 번 일어나나? | `weekly_report_cache` hit 시 LLM 재호출 없이 그대로 반환. 응답에 `cached: true` |
+| reviewed 토글이 KPI에 영향을 주나? | dashboard_summary는 reviewed 여부와 무관하게 전체 집계. 단 recent_decisions 목록에서는 미검토 결정 우선 정렬 |
+
+---
+
 ## 부록 A. 발표 슬라이드 권장 순서 (10분 기준)
 
 | # | 슬라이드 | 시간 | 핵심 메시지 |

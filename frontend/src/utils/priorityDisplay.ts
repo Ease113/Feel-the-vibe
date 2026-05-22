@@ -14,7 +14,7 @@ export const PRIORITY_LABEL_REFLECT_KO: Record<PriorityLabel, string> = {
   VERY_HIGH: '훨씬 더 반영',
 };
 
-/** 평가 조건 요약 칩 — 목적 점수 가중치 수준 */
+/** 평가 조건 요약 칩 — 종합 점수 가중치 수준 */
 export const PRIORITY_LABEL_CHIP_KO: Record<PriorityLabel, string> = {
   VERY_LOW:  '최소',
   LOW:       '낮음',

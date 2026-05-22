@@ -11,7 +11,7 @@ const TREND_DIM_KEYS = [
 type TrendDimKey = (typeof TREND_DIM_KEYS)[number];
 
 const TREND_DIM_LABELS: Record<TrendDimKey, string> = {
-  objective_score: '목적 점수',
+  objective_score: '종합 점수',
   wash_cost: '세척비용',
   downtime: '정지시간',
   setup_time: '셋업시간',
@@ -87,8 +87,8 @@ export function buildWeekTrendInsight(points: KpiTrendPoint[]): WeekTrendInsight
   if (Math.abs(scoreDelta) >= 1) {
     parts.push(
       scoreDelta > 0
-        ? `목적 점수가 주 초 대비 ${formatDelta(scoreDelta)} 상승했습니다 (낮을수록 유리).`
-        : `목적 점수가 주 초 대비 ${formatDelta(Math.abs(scoreDelta))} 개선되었습니다.`,
+        ? `종합 점수가 주 초 대비 ${formatDelta(scoreDelta)} 상승했습니다 (낮을수록 유리).`
+        : `종합 점수가 주 초 대비 ${formatDelta(Math.abs(scoreDelta))} 개선되었습니다.`,
     );
   }
   if (Math.abs(washDelta) >= 100) {
@@ -143,7 +143,7 @@ export function filterRedundantFindings(
     const t = item.trim();
     if (!t) return false;
     if (/이번 주 \d+건.*결정/.test(t) && /결정/.test(ov)) return false;
-    if (/평균 목적 점수/.test(t) && /목적 점수|objective/i.test(ov)) return false;
+    if (/평균 종합 점수/.test(t) && /종합 점수|objective/i.test(ov)) return false;
     if (/고위험 색상 전환/.test(t) && /고위험|전환/.test(ov)) return false;
     if (/가장 자주 발생한 규칙/.test(t)) return false;
     return true;

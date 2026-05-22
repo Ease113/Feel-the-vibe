@@ -560,10 +560,12 @@ export function applyGetPlanResponse(
  *     sequencePenalty, objectiveScore, riskWarnings
  *   - appliedWeights (OptimizeResponse 에는 없음 — null 유지)
  *   - comparisonDiffs (초기: recommendedSequence == currentSequence → [])
+ *   - comparisonState (recommended == current 합성: AI 추천안 목적점수를
+ *     onload부터 노출하기 위함. /predict 호출 후 applyPredictResponse가 덮어씀)
  *   - isOptimizing: false
  *
  * 갱신하지 않는 것
- *   - comparisonState, comparisonSummary (→ /predict 후 채워짐)
+ *   - comparisonSummary (→ /predict 후 채워짐)
  *   - priorityProfile (→ /optimize 요청 시 사용한 값 유지)
  */
 export function applyOptimizeResponse(
@@ -581,6 +583,17 @@ export function applyOptimizeResponse(
     prev.planItems,
   );
 
+  // onload 시 /predict는 호출하지 않으므로 백엔드 comparison_state가 없다.
+  // recommended == current 가정으로 합성해 "AI 추천안 목적점수" 행을 첫 화면부터 노출.
+  // 이후 D&D·우선순위 변경 시 applyPredictResponse가 실제 비교 값으로 덮어쓴다.
+  const comparisonState: ComparisonState = {
+    basis:       'objectiveScore',
+    recommended: raw.objective_score,
+    current:     raw.objective_score,
+    diff:        0,
+    diffRate:    0,
+  };
+
   return {
     ...prev,
     recommendedSequence: [...raw.recommended_sequence],
@@ -592,6 +605,7 @@ export function applyOptimizeResponse(
     objectiveScore:      raw.objective_score,
     riskWarnings,
     comparisonDiffs,
+    comparisonState,
     isOptimizing:        false,
   };
 }

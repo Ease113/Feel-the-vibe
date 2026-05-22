@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 
 class DashboardSummary(BaseModel):
-    """KPI 요약 지표 (결정 건수, 평균 목적 점수, 고위험 전환 수)."""
+    """KPI 요약 지표 (결정 건수, 평균 종합 점수, 고위험 전환 수)."""
 
     decision_count: int
     average_objective_score: float

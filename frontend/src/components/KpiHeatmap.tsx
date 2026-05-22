@@ -21,7 +21,7 @@ const DIMS: DimDef[] = [
   { key: 'wash_cost',      label: '세척비용',   formatValue: v => `${formatWon(v)}원` },
   { key: 'downtime',       label: '정지시간',   formatValue: v => `${formatMinutes(v)}분` },
   { key: 'packaging_time', label: '패키징시간', formatValue: v => `${formatMinutes(v)}분` },
-  { key: 'sequence_risk',  label: '순서패널티', formatValue: v => `${formatScore(v)}pt` },
+  { key: 'sequence_risk',  label: '규칙 위반 비용', formatValue: v => `${formatScore(v)}pt` },
 ];
 
 const SELECT_BADGE_COLORS = ['#0369a1', '#dc2626', '#16a34a'] as const;
