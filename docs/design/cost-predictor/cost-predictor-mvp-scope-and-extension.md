@@ -3,7 +3,7 @@
 > Status: Reference (시연용)
 > Created: 2026-05-21
 > Audience: 본선 시연 발표자, 후속 기여자
-> Related: `docs/learning/xgboost-cost-predictor-walkthrough.md` (코드 워크스루), `docs/design/xgboost-cost-predictor-integration.md` (구현 설계), `docs/implementation_log.md`
+> Related: `docs/learning/xgboost-cost-predictor-walkthrough.md` (코드 워크스루), `docs/design/cost-predictor/xgboost-cost-predictor-integration.md` (구현 설계), `docs/implementation_log.md`
 
 ## 1. 이 문서의 목적
 
@@ -360,8 +360,8 @@ booster = xgb.train(HYPERPARAMS, dtrain, num_boost_round=50, xgb_model="prev.jso
 | 문서 | 용도 |
 |---|---|
 | `docs/learning/xgboost-cost-predictor-walkthrough.md` | 코드 한 줄씩 따라가는 학습 자료. 본 자료의 §2를 코드 인용으로 펼친 버전. |
-| `docs/design/xgboost-cost-predictor-integration.md` | 구현 설계 결정의 출처. "왜 이렇게 만들었나"를 결정·대안·근거 표로 정리. |
-| `docs/design/xgboost-cost-predictor-adoption.md` | 사용자가 직접 구현하면서 학습하기 위한 가이드. (참고용) |
+| `docs/design/cost-predictor/xgboost-cost-predictor-integration.md` | 구현 설계 결정의 출처. "왜 이렇게 만들었나"를 결정·대안·근거 표로 정리. |
+| `docs/design/cost-predictor/xgboost-cost-predictor-adoption.md` | 사용자가 직접 구현하면서 학습하기 위한 가이드. (참고용) |
 | `docs/implementation_log.md` 2026-05-20 항목 | 본 작업의 변경 내역, 검증 결과, fallback 케이스 매트릭스. |
 | `docs/roadmap.md` | P0/P1/P2 우선순위. §3의 모든 한계가 어느 우선순위에 속하는지 확인용. |
 | `~/.claude/plans/1-lexical-honey.md` (terminated) | online learning 검토 결과. "MVP 범위 초과"로 종료된 plan. |

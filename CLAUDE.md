@@ -47,8 +47,9 @@ smoke test 확인 순서: `GET /health` → seed data → `/plans` → `/optimiz
 
 ## 설계 문서
 
-기능 설계 문서는 `docs/design/<feature-name>.md`에 작성합니다.  
-섹션 규칙과 문체는 `docs/design/design-doc.md`를 따릅니다.
+기능 설계 문서는 `docs/design/<category>/<feature-name>.md`에 작성합니다.  
+카테고리 폴더는 `overview/`, `db-schema/`, `cost-predictor/`, `sequencing/`, `priority/`, `dashboard/`, `frontend/`, `llm/` 중 하나를 사용하고, 새 영역이 필요하면 폴더를 추가합니다.  
+섹션 규칙과 문체는 `docs/design/design-doc.md`(template, root 유지)를 따릅니다.
 
 ## 코드 품질
 

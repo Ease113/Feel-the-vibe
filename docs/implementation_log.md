@@ -4,7 +4,7 @@
 
 ### 배경
 
-`docs/design/operating-context-cost-multiplier.md` — 운영 컨텍스트(교대·투입 인원)는 6차원 절대 비용에 균일 곱셈만 적용하고 추천 순서는 보존하며, 운영 우선순위 변경 시에만 `/optimize`로 추천 순서를 갱신합니다. 「평가 조건 적용」 단일 버튼으로 draft → apply 오케스트레이션.
+`docs/design/cost-predictor/operating-context-cost-multiplier.md` — 운영 컨텍스트(교대·투입 인원)는 6차원 절대 비용에 균일 곱셈만 적용하고 추천 순서는 보존하며, 운영 우선순위 변경 시에만 `/optimize`로 추천 순서를 갱신합니다. 「평가 조건 적용」 단일 버튼으로 draft → apply 오케스트레이션.
 
 ### 변경 내용
 
@@ -44,7 +44,7 @@
 
 ### 배경
 
-`docs/design/mvp-completion-plan.md` 잔여 P1 작업 중 LLM 호출지점 3곳(`/explain`, 주간 요약, 주간 보고서)이 모두 template-only로 남아 있어 시연 완성도가 낮았습니다. 설계 가이드는 `docs/design/llm-integration-and-weekly-report.md`. 핵심 원칙은 (a) LLM 자동 호출 금지(roadmap §13), (b) provider chain Gemini → claude CLI → template, (c) 주간 기간은 in-progress ISO 주(월~기준일), (d) `weekly_report_cache` UPSERT로 한 줄 요약과 본문 3면 누적 저장입니다.
+`docs/design/overview/mvp-completion-plan.md` 잔여 P1 작업 중 LLM 호출지점 3곳(`/explain`, 주간 요약, 주간 보고서)이 모두 template-only로 남아 있어 시연 완성도가 낮았습니다. 설계 가이드는 `docs/design/llm/llm-integration-and-weekly-report.md`. 핵심 원칙은 (a) LLM 자동 호출 금지(roadmap §13), (b) provider chain Gemini → claude CLI → template, (c) 주간 기간은 in-progress ISO 주(월~기준일), (d) `weekly_report_cache` UPSERT로 한 줄 요약과 본문 3면 누적 저장입니다.
 
 ### 변경 내용
 
@@ -67,7 +67,7 @@
 | 테스트 격리 | `backend/tests/conftest.py` | `SMARTFACTORY_LLM_API_KEY` env를 강제 unset해 테스트가 외부 네트워크/CLI에 의존하지 않도록 격리. |
 | LLM client 테스트 | `backend/tests/test_llm_client.py` (신설) | (a) template-only, (b) Gemini mock 성공, (c) Gemini 실패 → fallback, (d) CLI code-fence 추출, (e) CLI 실패 → fallback, (f) Gemini schema 위반 → fallback, (g) 미등록 prompt_id KeyError. |
 | 주간 보고서 테스트 | `backend/tests/test_weekly_report.py` (신설) | iso_week 월/수/일, 0건 케이스 template + cache 적재, summary→weekly 순서로 UPSERT시 본문 누적, POST endpoint smoke 2건, /dashboard cache 노출/null 처리, /dashboard LLM 자동 호출 없음 검증(`LLMClient.generate` mock call_count == 0). |
-| 문서 | `docs/api_contract.md`, `docs/source/DB_state_v1.3.md`, `docs/design/llm-integration-and-weekly-report.md` (신설) | `/dashboard`에 `weekly_report` 필드 추가, `/explain`에 provenance 3 필드 추가, `POST /reports/weekly-summary`·`POST /reports/weekly` 신규 명세, `generation_mode` enum을 `(gemini, cli, template)`로 갱신. |
+| 문서 | `docs/api_contract.md`, `docs/source/DB_state_v1.3.md`, `docs/design/llm/llm-integration-and-weekly-report.md` (신설) | `/dashboard`에 `weekly_report` 필드 추가, `/explain`에 provenance 3 필드 추가, `POST /reports/weekly-summary`·`POST /reports/weekly` 신규 명세, `generation_mode` enum을 `(gemini, cli, template)`로 갱신. |
 
 ### Fallback 검증
 
@@ -111,7 +111,7 @@
 
 ### 배경
 
-`docs/design/p1-backend-sequencing.md`에서 합의된 순서대로 kpi_trend 7차원 확장 다음 P1 작업입니다. 설계 가이드는 `docs/design/xgboost-cost-predictor-adoption.md` (사용자 학습용 가이드)이며, AGENTS.md fallback 정책상 모델이 없거나 로드 실패 시 heuristic으로 자동 떨어지는 구조를 유지합니다. 사용자가 발표에서 직접 설명할 수 있게 코드 워크스루 문서를 별도로 작성했습니다.
+`docs/design/sequencing/p1-backend-sequencing.md`에서 합의된 순서대로 kpi_trend 7차원 확장 다음 P1 작업입니다. 설계 가이드는 `docs/design/cost-predictor/xgboost-cost-predictor-adoption.md` (사용자 학습용 가이드)이며, AGENTS.md fallback 정책상 모델이 없거나 로드 실패 시 heuristic으로 자동 떨어지는 구조를 유지합니다. 사용자가 발표에서 직접 설명할 수 있게 코드 워크스루 문서를 별도로 작성했습니다.
 
 선행 정리: working tree의 `backend/app/data/raw/sequence_rules.json`이 다른 repo fetch 과정에서 의도치 않게 10/6/7/8로 회귀해 있었습니다. commit `8b08850`의 35/30/18/32가 정본이라 `git restore`로 복구했습니다 (FastAPI startup이 raw JSON을 만질 수 있는 코드 경로는 없음을 함께 검증).
 
@@ -172,7 +172,7 @@ macOS XGBoost 동작에 `libomp`가 필요해 `brew install libomp`로 시스템
 - 프론트엔드 `model_version` 표시 (어느 모델로 산출했는지 운영자에게 노출)
 - `sequence_risk` continuous(1/18/35) → binary(0/1) 정렬 (DB_state §6.4 기준, 2026-05-17부터 보류 중)
 - `Warning.type`, `Warning.commitBlocking` 필드 추가 + `TransitionCost.warnings` 배열화 (DB_state §12)
-- `backend/app/schemas/` 미사용 모델 정리 (`docs/design/schemas-cleanup-followup.md` 합의대로 trigger 기반 deferred 유지)
+- `backend/app/schemas/` 미사용 모델 정리 (`docs/design/db-schema/schemas-cleanup-followup.md` 합의대로 trigger 기반 deferred 유지)
 
 ## 2026-05-17 초기화
 
@@ -279,7 +279,7 @@ macOS XGBoost 동작에 `libomp`가 필요해 `brew install libomp`로 시스템
 
 `schema.sql`이 decisions 테이블을 새 스키마(`confirmed_at`, `applied_weights`, `context_snapshot`, `confirmed_cost_vector`)로 정의하지만, 2026-05-17 명세 정합성 수정 이전에 만들어진 legacy DB 파일(`created_at` + 14컬럼)이 잔존할 경우 `CREATE TABLE IF NOT EXISTS`가 무시되어 이후 `CREATE INDEX ON decisions (confirmed_at)`이 `OperationalError: no such column: confirmed_at`으로 깨졌습니다. 실DB(`backend/app/data/smartfactory.sqlite3`)에서 라이브 재현 확인. 기존 smoke test가 `/decisions`를 호출하지 않아 회귀를 잡지 못했습니다.
 
-설계 문서: `docs/design/db-init-idempotency.md`.
+설계 문서: `docs/design/db-schema/db-init-idempotency.md`.
 
 ### 변경 내용
 
@@ -319,7 +319,7 @@ macOS XGBoost 동작에 `libomp`가 필요해 `brew install libomp`로 시스템
 
 spec 적용에 따라 HIGH 전환 단독 objective 기여도가 45 → 10으로 축소되는 부작용이 있어 sequence_rules.json penalty 값도 함께 재조정했습니다.
 
-설계 문서: `docs/design/priority-profile-contract.md`.
+설계 문서: `docs/design/priority/priority-profile-contract.md`.
 
 ### 변경 내용
 
@@ -334,7 +334,7 @@ spec 적용에 따라 HIGH 전환 단독 objective 기여도가 45 → 10으로 
 
 ### Frontend 변경은 별도 담당자에게 hand-off
 
-사용자 요청으로 `frontend/src/api/types.ts`는 본 작업에서 변경하지 않았습니다. 필요한 변경 사항은 `docs/design/priority-profile-contract.md`의 "Frontend Hand-off Note" 절에 명시 (OperatorPriorityDimension 타입, PriorityProfile 인터페이스, PlanResponse 갱신).
+사용자 요청으로 `frontend/src/api/types.ts`는 본 작업에서 변경하지 않았습니다. 필요한 변경 사항은 `docs/design/priority/priority-profile-contract.md`의 "Frontend Hand-off Note" 절에 명시 (OperatorPriorityDimension 타입, PriorityProfile 인터페이스, PlanResponse 갱신).
 
 backend는 nested + flat 둘 다 받으므로 frontend 변경 전에도 동작은 정상. 단 slider가 contract대로 효과를 내려면 nested 형식으로 보내야 함.
 

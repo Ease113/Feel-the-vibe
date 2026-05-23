@@ -3,7 +3,7 @@
 > Status: Draft
 > Created: 2026-05-21
 > Owner: Ease113
-> Related: `docs/design/priority-cost-decoupling.md` (대안 검토 기록), `docs/design/operating-context-cost-multiplier.md`, `frontend/src/hooks/useDecisionPage.ts`, `frontend/src/utils/priorityPresets.ts`
+> Related: `docs/design/priority/priority-cost-decoupling.md` (대안 검토 기록), `docs/design/cost-predictor/operating-context-cost-multiplier.md`, `frontend/src/hooks/useDecisionPage.ts`, `frontend/src/utils/priorityPresets.ts`
 
 ## Context
 

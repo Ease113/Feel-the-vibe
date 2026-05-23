@@ -6,7 +6,7 @@
 
 ## Context
 
-`docs/design/mvp-completion-plan.md`의 P0 갭 3건을 한 PR로 묶기 위한 세부 설계입니다. 현재 상태와 목표 사양은 다음과 같습니다.
+`docs/design/overview/mvp-completion-plan.md`의 P0 갭 3건을 한 PR로 묶기 위한 세부 설계입니다. 현재 상태와 목표 사양은 다음과 같습니다.
 
 | 영역 | 현재 | 목표 (DB_state v1.3) | 갭 |
 |---|---|---|---|

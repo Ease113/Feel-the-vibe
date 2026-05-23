@@ -3,7 +3,7 @@
 > Status: Draft
 > Created: 2026-05-21
 > Owner: Ease113
-> Related: `docs/design/operating-context-cost-multiplier.md`, `docs/design/cost-predictor-mvp-scope-and-extension.md`, `docs/design/xgboost-cost-predictor-integration.md`, `backend/app/services/cost_predictor.py`, `backend/app/services/optimizer.py`
+> Related: `docs/design/cost-predictor/operating-context-cost-multiplier.md`, `docs/design/cost-predictor/cost-predictor-mvp-scope-and-extension.md`, `docs/design/cost-predictor/xgboost-cost-predictor-integration.md`, `backend/app/services/cost_predictor.py`, `backend/app/services/optimizer.py`
 
 ## Context
 

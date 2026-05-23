@@ -10,7 +10,7 @@
 
 이 시점에 백엔드 단독으로 다음에 무엇을 진행할지 결정해야 하는데, 후보로 "XGBoost 도입을 먼저 끝낸 뒤 trend 확장"과 "7차원 trend 확장 먼저, XGBoost는 별도 작업"이 거론되었습니다. 둘 사이의 의존성을 정리하지 않으면 demo flow에 회귀를 유발할 수 있는 큰 작업(XGBoost)이 demo에 즉시 가치를 주는 작은 작업(trend 노출)을 막게 됩니다.
 
-본 문서는 두 작업의 의존 관계를 분석해 **7차원 trend 확장을 먼저 진행하고 XGBoost는 후속 별도 작업으로 분리**한다는 합의를 남기는 것을 목적으로 합니다. 합의 후 구현은 별도 design doc(예: `docs/design/dashboard-kpi-7dim-trend.md`)에서 다룹니다.
+본 문서는 두 작업의 의존 관계를 분석해 **7차원 trend 확장을 먼저 진행하고 XGBoost는 후속 별도 작업으로 분리**한다는 합의를 남기는 것을 목적으로 합니다. 합의 후 구현은 별도 design doc(예: `docs/design/dashboard/dashboard-kpi-7dim-trend.md`)에서 다룹니다.
 
 ## Goals & Non-Goals
 
@@ -154,9 +154,9 @@ _해당없음_
 
 | 후속 문서 (예시 파일명) | 목적 |
 |---|---|
-| `docs/design/dashboard-kpi-7dim-trend.md` | `_kpi_trend` payload 7차원 확장과 응답 shape 결정. |
-| `docs/design/dashboard-weekly-window.md` (선택) | `_weekly_summary`의 ISO week·최근 7일 필터 도입. trend 문서와 합칠 수도 있음. |
-| `docs/design/xgboost-cost-predictor.md` | XGBoost 학습·로더·fallback 분기 도입. |
+| `docs/design/dashboard/dashboard-kpi-7dim-trend.md` | `_kpi_trend` payload 7차원 확장과 응답 shape 결정. |
+| `docs/design/dashboard/dashboard-weekly-window.md` (선택) | `_weekly_summary`의 ISO week·최근 7일 필터 도입. trend 문서와 합칠 수도 있음. |
+| `docs/design/cost-predictor/xgboost-cost-predictor.md` | XGBoost 학습·로더·fallback 분기 도입. |
 
 ## Performance
 

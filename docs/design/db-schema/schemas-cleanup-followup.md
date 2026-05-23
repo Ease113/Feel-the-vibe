@@ -152,7 +152,7 @@ flowchart TD
 | Case | Expected Handling | User/System Impact |
 |---|---|---|
 | 미사용 모델이 후속 design doc(예: weekly summary, decision-detail-view)에서 우연히 필요해짐 | 해당 design doc에서 import 추가만 하면 됩니다. 본 문서를 갱신할 필요는 없습니다. | 미사용 → 사용 전환은 본 합의를 깨지 않습니다. |
-| 합의 갱신 트리거 (a)(b)(c) 중 하나가 발생 | 새 design doc(예: `docs/design/schemas-response-model-adoption.md` 또는 `schemas-cleanup-delete.md`)를 작성하고 본 문서를 `Superseded`로 표기합니다. | 결정 이력이 보존됩니다. |
+| 합의 갱신 트리거 (a)(b)(c) 중 하나가 발생 | 새 design doc(예: `docs/design/db-schema/schemas-response-model-adoption.md` 또는 `schemas-cleanup-delete.md`)를 작성하고 본 문서를 `Superseded`로 표기합니다. | 결정 이력이 보존됩니다. |
 | 신규 contributor가 미사용 모듈을 사용처로 오인 | 본 문서 링크로 안내합니다. 반복되면 트리거 (c)로 간주합니다. | 1회는 안내, 2회 이상은 합의 갱신. |
 | `sequence.py` / `decision.py`에 새 모델을 추가해야 할 때 | 본 합의와 무관하게 정상 진행합니다. 본 문서는 미사용 3종에만 적용됩니다. | 영향 없음. |
 
@@ -210,14 +210,14 @@ _해당없음_
 
 | File | Action | Purpose |
 |---|---|---|
-| `docs/design/schemas-cleanup-followup.md` | Create | 본 문서. 후순위 결정과 트리거 조건을 기록합니다. |
+| `docs/design/db-schema/schemas-cleanup-followup.md` | Create | 본 문서. 후순위 결정과 트리거 조건을 기록합니다. |
 | 다음 PR body | Modify | "Out of Scope" 섹션에 follow-up 한 줄 기재합니다. |
 
 ## Implementation Steps
 
 ### Step 1: 본 문서 추가
 
-- **File**: `docs/design/schemas-cleanup-followup.md`
+- **File**: `docs/design/db-schema/schemas-cleanup-followup.md`
 - **Action**: Create
 - **Key snippet**: (본 문서 전체)
 - **Verify**: 파일이 추가되고 `Status: Draft`로 시작하며, `MEMORY.md` 또는 `docs/roadmap.md`를 건드리지 않았는지 확인합니다.
@@ -230,7 +230,7 @@ _해당없음_
   ```markdown
   ## Out of scope
   - `backend/app/schemas/` 미사용 모델 정리 — 후순위 유지 결정.
-    근거 및 트리거: `docs/design/schemas-cleanup-followup.md`.
+    근거 및 트리거: `docs/design/db-schema/schemas-cleanup-followup.md`.
   ```
 - **Verify**: PR 생성 시 해당 줄이 포함되어 있는지 확인합니다.
 

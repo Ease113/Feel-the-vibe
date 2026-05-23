@@ -34,18 +34,20 @@ PR
 docs/design/
 ```
 
-파일명은 다음 형식을 권장합니다.
+파일명과 위치는 다음 형식을 권장합니다.
 
 ```text
-docs/design/<feature-or-change-name>.md
+docs/design/<category>/<feature-or-change-name>.md
 ```
+
+카테고리 폴더는 주제별로 묶이며, 현재 사용 중인 카테고리는 `overview/`, `db-schema/`, `cost-predictor/`, `sequencing/`, `priority/`, `dashboard/`, `frontend/`, `llm/` 입니다. 새 영역이 필요하면 폴더를 추가합니다. (본 문서 `design-doc.md`는 template 이므로 `docs/design/` root 에 유지합니다.)
 
 예시는 다음과 같습니다.
 
 ```text
-docs/design/file-upload-version-extraction.md
-docs/design/project-task-approval-flow.md
-docs/design/api-authentication-redesign.md
+docs/design/db-schema/file-upload-version-extraction.md
+docs/design/overview/project-task-approval-flow.md
+docs/design/llm/api-authentication-redesign.md
 ```
 
 ## 필수 섹션

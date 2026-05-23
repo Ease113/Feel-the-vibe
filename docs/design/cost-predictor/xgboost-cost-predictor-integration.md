@@ -3,11 +3,11 @@
 > Status: Implemented (2026-05-20)
 > Owner: backend
 > Plan source: `~/.claude/plans/1-lexical-honey.md`
-> Related: `docs/design/xgboost-cost-predictor-adoption.md` (학습용 가이드), `docs/design/p1-backend-sequencing.md` (작업 순서 합의), `docs/implementation_log.md` (2026-05-20 항목)
+> Related: `docs/design/cost-predictor/xgboost-cost-predictor-adoption.md` (학습용 가이드), `docs/design/sequencing/p1-backend-sequencing.md` (작업 순서 합의), `docs/implementation_log.md` (2026-05-20 항목)
 
 ## 1. Context
 
-P0 backend 수직 슬라이스가 완성되고 dashboard kpi_trend 7차원 확장(2026-05-19)까지 끝난 시점에서, `docs/design/p1-backend-sequencing.md`가 합의한 다음 작업은 XGBoost 비용 예측기 도입입니다. 그전까지 `CostPredictor`는 deterministic heuristic이 유일한 경로였고, `train_xgboost.py`는 print만 하는 stub 상태였습니다. heuristic은 도메인 지식의 선형 합으로 동작하고 있어 비교 가능한 baseline은 안정적으로 확보되어 있지만, 비선형 상호작용(예: `equipment_condition`이 낮을 때 `family_changed`가 켜지면 비용이 비선형으로 튀는 패턴)을 표현하지 못합니다. 시연 narrative에서 "AI 비용 예측"을 단순히 휴리스틱으로 제시하면 ML 도입 가치가 보이지 않습니다.
+P0 backend 수직 슬라이스가 완성되고 dashboard kpi_trend 7차원 확장(2026-05-19)까지 끝난 시점에서, `docs/design/sequencing/p1-backend-sequencing.md`가 합의한 다음 작업은 XGBoost 비용 예측기 도입입니다. 그전까지 `CostPredictor`는 deterministic heuristic이 유일한 경로였고, `train_xgboost.py`는 print만 하는 stub 상태였습니다. heuristic은 도메인 지식의 선형 합으로 동작하고 있어 비교 가능한 baseline은 안정적으로 확보되어 있지만, 비선형 상호작용(예: `equipment_condition`이 낮을 때 `family_changed`가 켜지면 비용이 비선형으로 튀는 패턴)을 표현하지 못합니다. 시연 narrative에서 "AI 비용 예측"을 단순히 휴리스틱으로 제시하면 ML 도입 가치가 보이지 않습니다.
 
 본 작업은 학습 파이프라인·추론 분기·테스트 격리·학습 자료를 한 번에 정합화해 `CostPredictor`가 (a) XGBoost를 primary path로 사용하고, (b) 모델 파일이 없거나 로드 실패 시 heuristic으로 자동 fallback 하며, (c) 학습/추론이 같은 feature 함수를 사용해 silent drift를 차단하는 구조를 갖추는 것을 목적으로 합니다.
 
@@ -333,7 +333,7 @@ OR-tools 최적화기가 `_build_score_matrix`에서 N×(N-1)번 predict를 호�
 | FastAPI `@app.on_event("startup")` → `lifespan` 마이그레이션 | DeprecationWarning이 잔존하지만 본 작업과 분리. |
 | `sequence_risk` continuous(1/18/35) → binary(0/1) 정렬 (DB_state §6.4) | 2026-05-17부터 보류 중인 별도 contract drift 항목. |
 | `Warning.type`, `Warning.commitBlocking`, `TransitionCost.warnings` 배열화 | 동일하게 DB_state §12 contract drift. |
-| `backend/app/schemas/` 미사용 모델 정리 | `docs/design/schemas-cleanup-followup.md` 합의대로 trigger 기반 deferred. |
+| `backend/app/schemas/` 미사용 모델 정리 | `docs/design/db-schema/schemas-cleanup-followup.md` 합의대로 trigger 기반 deferred. |
 | 프론트엔드 `model_version` 표시 | 별도 frontend design doc 대상. |
 | LLM 설명 흐름 변경 | template fallback 그대로 유지. 본 작업과 무관. |
 | 차원별 hyperparameter 분리 / Bayesian optimization | demo 가치 낮음. 실 데이터 단계의 작업. |

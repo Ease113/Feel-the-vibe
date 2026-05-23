@@ -115,7 +115,7 @@ flowchart TD
 |---|---|
 | Decision | P1에서 #8(SKU 속성) → #4(LLM) → #5–7(Weekly) 순으로 진행 |
 | Alternatives | LLM 먼저 |
-| Rationale | SKU 속성은 설계 문서가 이미 합의 완료(`docs/design/sku-card-property-display.md`)고 시연 화면 시각 완성도에 큰 영향. LLM은 fallback이 이미 동작하므로 시연 중요도 낮음. |
+| Rationale | SKU 속성은 설계 문서가 이미 합의 완료(`docs/design/frontend/sku-card-property-display.md`)고 시연 화면 시각 완성도에 큰 영향. LLM은 fallback이 이미 동작하므로 시연 중요도 낮음. |
 | Impact | 시연 시 광택/점도 수치가 카드에 보이는 변화는 첫인상에 직접 기여. |
 
 ### Decision 3: 학습된 모델 파일 commit 유지
@@ -164,8 +164,8 @@ flowchart TD
 | 5 | backend | `backend/app/services/dashboard_service.py:82-88` | `_weekly_summary` 실집계(비용·다운타임·리스크) + LLM 분기. | 본 문서로 충분 |
 | 6 | backend | `backend/app/db/sqlite.py`, `dashboard_service.py` | `weekly_report_cache` INSERT/SELECT 경로 + `/dashboard` 응답에 `key_findings`·`recommendations` 노출. | 본 문서 + 신규 |
 | 7 | frontend | `frontend/src/pages/DashboardPage.tsx` (신규 컴포넌트) | 주간 보고서 본문/주요 발견/권장 사항 UI. | **별도 design doc 선행 필요** |
-| 8 | frontend | `frontend/src/api/types.ts`, `mappers.ts`, `components/SkuCard.tsx` | PlanItem에 점도·안료·밝기·광택 확장 + 카드 메타 라인 표시. | `docs/design/sku-card-property-display.md` (완료) |
-| 9 | frontend | `frontend/src/components/DashboardCharts.tsx` | Draft 설계와 대조해 누락 차원 차트 보강. | `docs/design/dashboard-kpi-chart-7dim-frontend.md` |
+| 8 | frontend | `frontend/src/api/types.ts`, `mappers.ts`, `components/SkuCard.tsx` | PlanItem에 점도·안료·밝기·광택 확장 + 카드 메타 라인 표시. | `docs/design/frontend/sku-card-property-display.md` (완료) |
+| 9 | frontend | `frontend/src/components/DashboardCharts.tsx` | Draft 설계와 대조해 누락 차원 차트 보강. | `docs/design/dashboard/dashboard-kpi-chart-7dim-frontend.md` |
 
 ### 정리(코드 작성 포함)
 

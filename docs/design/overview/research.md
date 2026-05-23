@@ -473,7 +473,7 @@ export interface PriorityProfile {
 // PlanResponse.default_priority_profile 타입을 PriorityProfile로 교체
 ```
 
-상세는 `docs/design/priority-profile-contract.md` "Frontend Hand-off Note" 절.
+상세는 `docs/design/priority/priority-profile-contract.md` "Frontend Hand-off Note" 절.
 
 ### 6.6 빌드 / 린트 설정
 
@@ -597,13 +597,13 @@ API 구현 우선순위 (`docs/roadmap.md:240-252`): `/health` → `/plans` → 
 - 한국어 템플릿 설명 (LLM 없이)
 - `comparison_state`의 5개 core 필드를 DB_state v1.3 정본과 정합 (구현 로그 2026-05-17)
 
-#### Task #1 — DB Init Idempotency (2026-05-19, 설계: `docs/design/db-init-idempotency.md`)
+#### Task #1 — DB Init Idempotency (2026-05-19, 설계: `docs/design/db-schema/db-init-idempotency.md`)
 - `initialize_database()`가 legacy `decisions` 스키마(`created_at` 14컬럼 등)를 sentinel 컬럼으로 감지해 자동 DROP + 재생성. WARNING 로그에 행 수 표기
 - `SMARTFACTORY_DB_PATH` 환경변수로 SQLITE 경로 오버라이드 가능 (`app/core/config.py:11-14`)
 - `backend/tests/conftest.py` 신규 — module-level에서 tmp 디렉토리 경로 세팅으로 실DB 격리
 - smoke test 2건 신규: legacy 자동 복구 회귀 + `/decisions` 라이프사이클(POST→GET→PATCH→/dashboard)
 
-#### Task #2 — Priority Profile Contract Conformance (2026-05-19, 설계: `docs/design/priority-profile-contract.md`)
+#### Task #2 — Priority Profile Contract Conformance (2026-05-19, 설계: `docs/design/priority/priority-profile-contract.md`)
 - `priority.py` 재작성: `BASE_WEIGHT_DIMENSIONS(6)`, `OPERATOR_PRIORITY_DIMENSIONS(5)`, `FACTORY_DEFAULT_V1_BASE_WEIGHTS` 도입. `normalize_priority_profile`이 nested contract + legacy flat + None 입력을 모두 graceful 수용
 - `default_priority_profile()`이 contract nested 형식 (`base_weight_profile_id` + 5차원 `priorities`) 반환
 - `applied_weights`가 6차원 합=1로 재정규화, sequence_risk 제외
@@ -622,7 +622,7 @@ API 구현 우선순위 (`docs/roadmap.md:240-252`): `/health` → `/plans` → 
 | **Task #4 — XGBoost 학습** | stub | `train_xgboost.py:7-12` — heuristic primary path 유지 가능 (fallback 정책). transition_history 1,500행 기반 학습 + 모델 저장 + CostPredictor에서 모델 로드 |
 | Frontend types.ts hand-off (Task #2 일부) | pending | `PriorityProfile` 인터페이스 nested 갱신 + `PlanResponse.default_priority_profile` 타입 교체. 별도 FE 담당자에게 위임됨. backend는 nested + flat 둘 다 수용해 깨지지 않음 |
 | Recharts 차트 | placeholder | `DashboardCharts.tsx`가 텍스트 출력만 — Recharts 컴포넌트 import 없음 |
-| PriorityLabel ko↔en 매핑 | 디자인만 | `docs/design/priority-label-mapping.md`는 있으나 UI 적용 없음 |
+| PriorityLabel ko↔en 매핑 | 디자인만 | `docs/design/priority/priority-label-mapping.md`는 있으나 UI 적용 없음 |
 | LLM 연동 | 없음 | `ExplanationService`는 template 전용 (P1에서 template 유지도 허용됨) |
 | 단위 테스트 추가 | 부분 | smoke 13건 (Task #1·#2 포함). CostPredictor/DecisionLogger/DashboardService 단독 단위 테스트는 아직 부재 |
 | `weekly_report_cache` 사용 | 미사용 | 테이블만 존재, 로직 미작성 |
@@ -690,5 +690,5 @@ GET /health
 | state/API/DB 계약 (정본) | `docs/source/DB_state_v1.3.md` |
 | API 응답 contract | `docs/api_contract.md` |
 | 최근 작업 로그 | `docs/implementation_log.md` |
-| Task #1 설계 | `docs/design/db-init-idempotency.md` |
-| Task #2 설계 + frontend hand-off | `docs/design/priority-profile-contract.md` |
+| Task #1 설계 | `docs/design/db-schema/db-init-idempotency.md` |
+| Task #2 설계 + frontend hand-off | `docs/design/priority/priority-profile-contract.md` |
