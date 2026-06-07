@@ -1,0 +1,13 @@
+# 빌드 컨텍스트에서 제외 — 이미지 경량화 + 비밀값/런타임 산출물 유입 차단.
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+*.egg-info
+.env
+app/data/*.sqlite3
+app/data/*.sqlite3-shm
+app/data/*.sqlite3-wal
+tests/
+.idea/
+.vscode/

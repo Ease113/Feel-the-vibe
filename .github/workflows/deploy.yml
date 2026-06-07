@@ -1,0 +1,70 @@
+# Path B — 테스트 통과 후에만 배포(테스트가 배포를 게이트).
+#
+# 필요한 GitHub Secrets (Settings > Secrets and variables > Actions):
+#   RENDER_DEPLOY_HOOK    Render 서비스의 Deploy Hook URL
+#   CLOUDFLARE_API_TOKEN  Cloudflare Pages 편집 권한 API 토큰
+#   CLOUDFLARE_ACCOUNT_ID Cloudflare 계정 ID
+#   VITE_API_BASE         배포된 백엔드 URL (예: https://feel-the-vibe-api.onrender.com)
+#
+# Path B를 쓸 경우 네이티브 자동배포와 충돌하지 않도록:
+#   - render.yaml의 autoDeploy 를 false 로 바꾼다 (Render 자체 자동배포 off).
+#   - Cloudflare Pages는 Git 연동 대신 Direct Upload(wrangler) 프로젝트로 만들어
+#     네이티브 자동배포를 끈다.
+name: Deploy
+
+on:
+  push:
+    branches: [presentation]
+
+# 같은 브랜치에 연속 push 시 진행 중 워크플로를 취소한다.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install backend (with dev deps)
+        working-directory: backend
+        run: pip install -e ".[dev]"
+      - name: Run pytest
+        working-directory: backend
+        run: python -m pytest -q
+
+  deploy-backend:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy hook
+        run: curl -fsS "${{ secrets.RENDER_DEPLOY_HOOK }}"
+
+  deploy-frontend:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Build
+        working-directory: frontend
+        env:
+          VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+        run: npm run build
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: frontend
+          command: pages deploy dist --project-name=feel-the-vibe --branch=presentation

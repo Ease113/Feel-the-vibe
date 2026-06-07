@@ -35,3 +35,12 @@ LLM_API_KEY = (os.environ.get("SMARTFACTORY_LLM_API_KEY") or "").strip() or None
 LLM_MODEL = os.environ.get("SMARTFACTORY_LLM_MODEL", "gemini-flash-latest")
 LLM_TIMEOUT_SEC = float(os.environ.get("SMARTFACTORY_LLM_TIMEOUT_SEC", "10"))
 LLM_CLI_TIMEOUT_SEC = float(os.environ.get("SMARTFACTORY_LLM_CLI_TIMEOUT_SEC", "15"))
+
+# CORS 허용 출처. 배포 환경에서는 Cloudflare Pages URL을 콤마 구분으로 넣는다.
+# 미설정 시 로컬 Vite dev server 출처만 허용한다 — 운영 도메인은 항상 env로 주입.
+_DEFAULT_CORS = "http://localhost:5173,http://127.0.0.1:5173"
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("SMARTFACTORY_CORS_ORIGINS", _DEFAULT_CORS).split(",")
+    if origin.strip()
+]

@@ -1,0 +1,21 @@
+# Render Blueprint — 백엔드 단일 web 서비스(Docker, 무료 플랜).
+# 대시보드에서 "New > Blueprint"로 이 리포를 연결하면 자동 인식된다.
+# 비밀값(CORS 출처, LLM 키)은 sync:false로 두고 대시보드에서 직접 입력한다 — 커밋 금지.
+services:
+  - type: web
+    name: feel-the-vibe-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    region: singapore
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Cloudflare Pages 배포 URL을 콤마 구분으로 입력 (예: https://feel-the-vibe.pages.dev)
+      - key: SMARTFACTORY_CORS_ORIGINS
+        sync: false
+      # Gemini API 키. 미입력 시 LLM은 claude CLI → template 순으로 fallback.
+      - key: SMARTFACTORY_LLM_API_KEY
+        sync: false
