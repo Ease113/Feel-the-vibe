@@ -46,8 +46,13 @@ CORS와 API URL이 서로를 참조하므로 **백엔드 먼저** 올리고, 프
 
 ## 2단계 — 프론트엔드 (Cloudflare Pages)
 
-1. [Cloudflare Dashboard](https://dash.cloudflare.com) → **Workers & Pages > Create > Pages**
-   → Git 연동(또는 Path B의 Direct Upload).
+1. [Cloudflare Dashboard](https://dash.cloudflare.com) → **Workers & Pages > Create application**
+   → 상단 **`Pages` 탭** → **`Connect to Git`** (Path B는 Direct Upload).
+
+   > ⚠️ **함정:** Workers 쪽의 **"Import a repository"** 흐름으로 들어가면 Cloudflare Vite
+   > 플러그인 기반이라 **Framework preset / Build output directory 필드가 없고**, Vite 6.0.0+를
+   > 요구해 앞서 본 에러가 납니다. 반드시 **`Pages` 탭 → `Connect to Git`**으로 들어가야
+   > 아래 빌드 설정 필드가 나타나고 Vite 5에서 그대로 동작합니다.
 2. 빌드 설정:
    - Framework preset: **None** (⚠️ "Vite" 프리셋은 선택하지 말 것 — 아래 주의 참고)
    - Build command: `npm run build`
