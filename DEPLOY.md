@@ -46,28 +46,40 @@ CORS와 API URL이 서로를 참조하므로 **백엔드 먼저** 올리고, 프
 
 ## 2단계 — 프론트엔드 (Cloudflare Pages)
 
-1. [Cloudflare Dashboard](https://dash.cloudflare.com) → **Workers & Pages > Create application**
-   → 상단 **`Pages` 탭** → **`Connect to Git`** (Path B는 Direct Upload).
+현재 Cloudflare 대시보드는 정적 SPA도 **Workers**(Static Assets)로 안내합니다. 이 리포는
+`frontend/wrangler.jsonc`로 assets-only Worker 설정을 포함하므로, **Workers Builds** 경로를
+권장합니다(아래 권장안). 클래식 **Pages** 경로를 쓰고 싶다면 그 아래 대안을 참고하세요.
 
-   > ⚠️ **함정:** Workers 쪽의 **"Import a repository"** 흐름으로 들어가면 Cloudflare Vite
-   > 플러그인 기반이라 **Framework preset / Build output directory 필드가 없고**, Vite 6.0.0+를
-   > 요구해 앞서 본 에러가 납니다. 반드시 **`Pages` 탭 → `Connect to Git`**으로 들어가야
-   > 아래 빌드 설정 필드가 나타나고 Vite 5에서 그대로 동작합니다.
+### 권장 — Workers Static Assets (현재 셋업)
+
+`frontend/wrangler.jsonc`가 Vite 빌드 산출물(`dist/`)을 Worker 코드 없이 SPA로 서빙합니다.
+Worker 버전/Vite 버전과 무관하게 동작하며, 앞서 본 "Vite 6.0.0+" 에러도 발생하지 않습니다.
+
+1. [Cloudflare Dashboard](https://dash.cloudflare.com) → **Workers & Pages > Create**
+   → **Import a repository** → 이 리포 연결.
+2. Build settings 확인(이미 맞다면 그대로):
+   - **Build command**: `npm run build`
+   - **Deploy command**: `npx wrangler deploy`
+   - **Root directory**: `frontend`
+   > Framework preset / Build output directory 필드는 Workers에는 없습니다(정상). 출력 폴더는
+   > `wrangler.jsonc`의 `assets.directory: ./dist`가 담당합니다.
+3. **`wrangler.jsonc`의 `name`을 대시보드의 실제 Worker 이름과 일치**시키세요. 다르면 별도
+   Worker가 새로 생성됩니다. (현재 기본값: `feel-the-vibe`)
+4. **Build variables**에 `VITE_API_BASE = https://<service>.onrender.com` (1단계 백엔드 URL) 입력.
+   > Vite는 빌드 타임에 `import.meta.env.VITE_API_BASE`를 인라인합니다 — 값 변경 시 **재빌드** 필요.
+5. 배포 후 프론트 URL(`https://<worker>.<account>.workers.dev`) 확보.
+
+### 대안 — 클래식 Pages
+
+1. **Workers & Pages > Create application** → 상단 **`Pages` 탭** → **`Connect to Git`**.
+   > ⚠️ Workers의 **"Import a repository"**가 아니라 **`Pages` 탭 → `Connect to Git`**으로 들어가야
+   > 아래 Pages 전용 빌드 필드가 나옵니다.
 2. 빌드 설정:
-   - Framework preset: **None** (⚠️ "Vite" 프리셋은 선택하지 말 것 — 아래 주의 참고)
+   - Framework preset: **None** (⚠️ "Vite" 프리셋은 Vite 6.0.0+를 요구하므로 선택 금지)
    - Build command: `npm run build`
    - Build output directory: `dist`
    - Root directory: `frontend`
-
-   > **왜 "None"인가:** Cloudflare의 "Vite" 프리셋 자동 구성은 **Vite 6.0.0+**를 요구합니다.
-   > 이 프로젝트는 Vite 5.x라 프리셋을 고르면
-   > `The version of Vite used in the project cannot be automatically configured` 에러가 납니다.
-   > Pages는 정적 `dist/`를 서빙할 뿐이라 Vite 버전과 무관하므로, 프리셋을 **None**으로 두고
-   > 빌드 명령/출력 폴더만 수동 지정하면 그대로 동작합니다. (프리셋을 꼭 쓰려면 Vite를 6으로
-   > 올려야 하며, 이 경우 빌드 재검증이 필요합니다.)
-3. **환경변수**에 `VITE_API_BASE = https://<service>.onrender.com` (1단계 백엔드 URL) 입력.
-   > Vite는 빌드 타임에 `import.meta.env.VITE_API_BASE`를 인라인합니다 — 값 변경 시 **재빌드** 필요.
-4. 배포 후 프론트 URL 확보.
+3. **환경변수**에 `VITE_API_BASE` 입력 후 배포 → 프론트 URL(`*.pages.dev`) 확보.
 
 ## 3단계 — 양쪽 교차 연결
 

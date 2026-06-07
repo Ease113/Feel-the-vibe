@@ -1,0 +1,15 @@
+// Cloudflare Workers — 정적 SPA(Static Assets) 배포 설정.
+// Worker 코드 없이 Vite 빌드 산출물(dist/)만 서빙한다(assets-only).
+// Workers Builds가 `npm run build` → `npx wrangler deploy` 순으로 이 파일을 읽는다.
+{
+  // ⚠️ 대시보드에 이미 만들어진 Worker 이름과 반드시 일치시킬 것.
+  //    (Workers & Pages 목록에 보이는 그 이름. 다르면 별도 Worker가 새로 생성됨)
+  "name": "feel-the-vibe",
+  "compatibility_date": "2026-06-06",
+  "assets": {
+    // Vite 빌드 출력 폴더. root directory가 frontend이므로 frontend/dist를 가리킨다.
+    "directory": "./dist",
+    // SPA 라우팅: 정적 파일과 매칭 안 되는 경로는 index.html을 200으로 반환한다.
+    "not_found_handling": "single-page-application"
+  }
+}
