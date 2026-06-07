@@ -49,10 +49,17 @@ CORS와 API URL이 서로를 참조하므로 **백엔드 먼저** 올리고, 프
 1. [Cloudflare Dashboard](https://dash.cloudflare.com) → **Workers & Pages > Create > Pages**
    → Git 연동(또는 Path B의 Direct Upload).
 2. 빌드 설정:
-   - Framework preset: **Vite**
+   - Framework preset: **None** (⚠️ "Vite" 프리셋은 선택하지 말 것 — 아래 주의 참고)
    - Build command: `npm run build`
    - Build output directory: `dist`
    - Root directory: `frontend`
+
+   > **왜 "None"인가:** Cloudflare의 "Vite" 프리셋 자동 구성은 **Vite 6.0.0+**를 요구합니다.
+   > 이 프로젝트는 Vite 5.x라 프리셋을 고르면
+   > `The version of Vite used in the project cannot be automatically configured` 에러가 납니다.
+   > Pages는 정적 `dist/`를 서빙할 뿐이라 Vite 버전과 무관하므로, 프리셋을 **None**으로 두고
+   > 빌드 명령/출력 폴더만 수동 지정하면 그대로 동작합니다. (프리셋을 꼭 쓰려면 Vite를 6으로
+   > 올려야 하며, 이 경우 빌드 재검증이 필요합니다.)
 3. **환경변수**에 `VITE_API_BASE = https://<service>.onrender.com` (1단계 백엔드 URL) 입력.
    > Vite는 빌드 타임에 `import.meta.env.VITE_API_BASE`를 인라인합니다 — 값 변경 시 **재빌드** 필요.
 4. 배포 후 프론트 URL 확보.
